@@ -1,0 +1,111 @@
+import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { readRequest } from "@/lib/tauri";
+import type { Method } from "@/lib/types";
+import { useRequest } from "@/stores/request-store";
+import { useWorkspace } from "@/stores/workspace-store";
+
+const METHOD_COLOR: Record<Method, string> = {
+  GET: "var(--color-method-get)",
+  POST: "var(--color-method-post)",
+  PUT: "var(--color-method-put)",
+  PATCH: "var(--color-method-patch)",
+  DELETE: "var(--color-method-delete)",
+  HEAD: "var(--color-method-head)",
+  OPTIONS: "var(--color-method-options)",
+};
+
+function isMethod(s: string): s is Method {
+  return (
+    s === "GET" ||
+    s === "POST" ||
+    s === "PUT" ||
+    s === "PATCH" ||
+    s === "DELETE" ||
+    s === "HEAD" ||
+    s === "OPTIONS"
+  );
+}
+
+export function Sidebar() {
+  const rootPath = useWorkspace((s) => s.rootPath);
+  const items = useWorkspace((s) => s.items);
+  const loading = useWorkspace((s) => s.loading);
+  const error = useWorkspace((s) => s.error);
+  const openFolder = useWorkspace((s) => s.openFolder);
+  const refresh = useWorkspace((s) => s.refresh);
+
+  const setUrl = useRequest((s) => s.setUrl);
+  const setMethod = useRequest((s) => s.setMethod);
+
+  // Refresh on mount and whenever the root path changes.
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  if (!rootPath) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+        <h2 className="font-display text-2xl italic">Open a folder.</h2>
+        <p className="max-w-[28ch] text-muted-foreground text-xs">
+          Lancer reads <code className="font-mono">.bru</code> files from any folder. Sync via your
+          Git.
+        </p>
+        <Button onClick={() => void openFolder()}>Open Folder</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between gap-2 border-border border-b px-3 py-2">
+        <span className="truncate font-mono text-muted-foreground text-xs" title={rootPath}>
+          {rootPath}
+        </span>
+        <Button variant="ghost" size="sm" onClick={() => void openFolder()}>
+          Change
+        </Button>
+      </div>
+      <ScrollArea className="flex-1">
+        {loading && <div className="p-3 text-muted-foreground text-xs">Loading…</div>}
+        {error && <div className="p-3 text-destructive text-xs">{error}</div>}
+        {!loading && !error && items.length === 0 && (
+          <div className="p-3 text-muted-foreground text-xs">
+            No <code className="font-mono">.bru</code> files in this folder.
+          </div>
+        )}
+        <ul className="py-1">
+          {items.map((it) => {
+            const m: Method = isMethod(it.method) ? it.method : "GET";
+            return (
+              <li key={it.path}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-2 py-1 text-left hover:bg-accent"
+                  onClick={async () => {
+                    try {
+                      const req = await readRequest(it.path);
+                      setUrl(req.url);
+                      if (isMethod(req.method)) setMethod(req.method);
+                    } catch (e) {
+                      console.error("read_request failed", e);
+                    }
+                  }}
+                >
+                  <span
+                    className="w-12 shrink-0 font-mono font-semibold text-[10px] uppercase tracking-wider"
+                    style={{ color: METHOD_COLOR[m] }}
+                  >
+                    {m}
+                  </span>
+                  <span className="truncate text-xs">{it.name}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </ScrollArea>
+    </div>
+  );
+}
