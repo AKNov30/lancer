@@ -1,24 +1,14 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-// TODO(M1.2): replace inline styles with Tailwind + shadcn primitives
+import { Button } from "@/components/ui/button";
 
 export default function App() {
   const [msg, setMsg] = useState<string | null>(null);
   return (
-    <main
-      style={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 16,
-        padding: 24,
-      }}
-    >
-      <h1 style={{ margin: 0 }}>Lancer</h1>
-      <p style={{ margin: 0, opacity: 0.7 }}>Send requests fast.</p>
-      <button
+    <main className="h-full flex flex-col items-center justify-center gap-4 p-6">
+      <h1 className="font-display italic text-4xl">Lancer</h1>
+      <p className="text-sm text-muted-foreground">Send requests fast.</p>
+      <Button
         onClick={async () => {
           try {
             setMsg(await invoke<string>("greet", { name: "Lancer" }));
@@ -28,8 +18,10 @@ export default function App() {
         }}
       >
         Ping Rust
-      </button>
-      {msg && <pre style={{ fontFamily: "ui-monospace, monospace" }}>{msg}</pre>}
+      </Button>
+      {msg && (
+        <pre className="font-mono text-xs text-muted-foreground">{msg}</pre>
+      )}
     </main>
   );
 }
