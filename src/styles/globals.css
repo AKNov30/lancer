@@ -13,9 +13,9 @@
 
 @theme inline {
   /* Typography — literal font-family names so @theme inline can resolve at parse time. */
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", "Segoe UI Mono", monospace;
-  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "JetBrains Mono Fallback", ui-monospace, monospace;
+  --font-display: "Instrument Serif", "Instrument Serif Fallback", ui-serif, Georgia, serif;
 
   /* Surfaces (dark) */
   --color-background:           oklch(0.13 0.005 240);
