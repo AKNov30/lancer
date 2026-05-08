@@ -1,0 +1,24 @@
+meta {
+  name: Get user
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/users/42
+  body: none
+  auth: bearer
+}
+
+headers {
+  accept: application/json
+  ~accept-language: en
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+vars:pre-request {
+  baseUrl: https://api.example.com
+}
