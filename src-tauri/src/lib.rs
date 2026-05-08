@@ -4,18 +4,10 @@ pub mod http;
 #[cfg(test)]
 mod tests;
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {name}! Lancer is alive.")
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![
-            greet,
-            commands::http::send_request
-        ])
+        .invoke_handler(tauri::generate_handler![commands::http::send_request])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
