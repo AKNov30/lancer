@@ -13,14 +13,14 @@ pre-commit:
     cargo-fmt:
       priority: 2
       glob: "src-tauri/**/*.rs"
-      run: /c/Users/Asus/.cargo/bin/cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      run: PATH="$HOME/.cargo/bin:$PATH" cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
     cargo-clippy:
       priority: 2
       glob: "src-tauri/**/*.rs"
-      run: /c/Users/Asus/.cargo/bin/cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+      run: PATH="$HOME/.cargo/bin:$PATH" cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 pre-push:
   commands:
     test-rust:
       glob: "src-tauri/**/*.rs"
-      run: /c/Users/Asus/.cargo/bin/cargo test --manifest-path src-tauri/Cargo.toml
+      run: PATH="$HOME/.cargo/bin:$PATH" cargo test --manifest-path src-tauri/Cargo.toml
