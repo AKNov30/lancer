@@ -138,3 +138,8 @@ async fn send_with_headers_passes_through() {
         "expected echoed header in: {text}"
     );
 }
+
+#[test]
+fn send_request_command_function_exists() {
+    let _ = crate::commands::http::send_request;
+}
