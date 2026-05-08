@@ -1,3 +1,8 @@
+pub mod http;
+
+#[cfg(test)]
+mod tests;
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {name}! Lancer is alive.")
