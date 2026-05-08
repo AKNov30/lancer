@@ -270,3 +270,133 @@ pub fn parse(input: &str) -> Result<Request, BruError> {
         vars,
     })
 }
+
+pub fn serialize(req: &Request) -> String {
+    let mut out = String::new();
+
+    // meta block
+    out.push_str("meta {\n");
+    out.push_str(&format!("  name: {}\n", req.name));
+    out.push_str("  type: http\n");
+    if let Some(seq) = req.seq {
+        out.push_str(&format!("  seq: {seq}\n"));
+    }
+    out.push_str("}\n\n");
+
+    // method block — controls the body and auth markers
+    let method_str = match req.method {
+        Method::Get => "get",
+        Method::Post => "post",
+        Method::Put => "put",
+        Method::Patch => "patch",
+        Method::Delete => "delete",
+        Method::Head => "head",
+        Method::Options => "options",
+    };
+    out.push_str(&format!("{method_str} {{\n"));
+    out.push_str(&format!("  url: {}\n", req.url));
+    let body_marker = match &req.body {
+        Some(RequestBody::Json { .. }) => "json",
+        Some(RequestBody::Text { .. }) => "text",
+        Some(RequestBody::FormUrlencoded { .. }) => "form-urlencoded",
+        Some(RequestBody::MultipartForm { .. }) => "multipart-form",
+        Some(RequestBody::GraphQl { .. }) => "graphql",
+        None => "none",
+    };
+    out.push_str(&format!("  body: {body_marker}\n"));
+    let auth_marker = match &req.auth {
+        Some(Auth::None) | None => "none",
+        Some(Auth::Bearer { .. }) => "bearer",
+        Some(Auth::Basic { .. }) => "basic",
+        Some(Auth::ApiKey { .. }) => "apikey",
+    };
+    out.push_str(&format!("  auth: {auth_marker}\n"));
+    out.push_str("}\n\n");
+
+    if !req.headers.is_empty() {
+        out.push_str("headers {\n");
+        write_kv_list(&mut out, &req.headers);
+        out.push_str("}\n\n");
+    }
+
+    if !req.params.is_empty() {
+        out.push_str("params:query {\n");
+        write_kv_list(&mut out, &req.params);
+        out.push_str("}\n\n");
+    }
+
+    match &req.auth {
+        Some(Auth::Bearer { token }) => {
+            out.push_str("auth:bearer {\n");
+            out.push_str(&format!("  token: {token}\n"));
+            out.push_str("}\n\n");
+        }
+        Some(Auth::Basic { username, password }) => {
+            out.push_str("auth:basic {\n");
+            out.push_str(&format!("  username: {username}\n"));
+            out.push_str(&format!("  password: {password}\n"));
+            out.push_str("}\n\n");
+        }
+        Some(Auth::ApiKey {
+            key,
+            value,
+            location,
+        }) => {
+            out.push_str("auth:apikey {\n");
+            out.push_str(&format!("  key: {key}\n"));
+            out.push_str(&format!("  value: {value}\n"));
+            out.push_str(&format!("  in: {location}\n"));
+            out.push_str("}\n\n");
+        }
+        Some(Auth::None) | None => {}
+    }
+
+    match &req.body {
+        Some(RequestBody::Json { value }) => {
+            out.push_str("body:json {\n");
+            out.push_str(value.trim());
+            out.push_str("\n}\n\n");
+        }
+        Some(RequestBody::Text { value, .. }) => {
+            out.push_str("body:text {\n");
+            out.push_str(value.trim());
+            out.push_str("\n}\n\n");
+        }
+        Some(RequestBody::FormUrlencoded { fields }) => {
+            out.push_str("body:form-urlencoded {\n");
+            write_kv_list(&mut out, fields);
+            out.push_str("}\n\n");
+        }
+        Some(RequestBody::MultipartForm { fields }) => {
+            out.push_str("body:multipart-form {\n");
+            write_kv_list(&mut out, fields);
+            out.push_str("}\n\n");
+        }
+        Some(RequestBody::GraphQl { query, variables }) => {
+            out.push_str("body:graphql {\n");
+            out.push_str(query.trim());
+            out.push_str("\n}\n\n");
+            if !variables.trim().is_empty() {
+                out.push_str("body:graphql:vars {\n");
+                out.push_str(variables.trim());
+                out.push_str("\n}\n\n");
+            }
+        }
+        None => {}
+    }
+
+    if !req.vars.is_empty() {
+        out.push_str("vars:pre-request {\n");
+        write_kv_list(&mut out, &req.vars);
+        out.push_str("}\n");
+    }
+
+    out
+}
+
+fn write_kv_list(out: &mut String, list: &[KvEnabled]) {
+    for kv in list {
+        let prefix = if kv.enabled { "" } else { "~" };
+        out.push_str(&format!("  {prefix}{}: {}\n", kv.key, kv.value));
+    }
+}
