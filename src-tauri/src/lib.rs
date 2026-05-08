@@ -1,3 +1,4 @@
+pub mod collection;
 pub mod commands;
 pub mod http;
 
