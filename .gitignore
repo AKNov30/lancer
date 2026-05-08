@@ -8,3 +8,6 @@ src-tauri/gen/
 .env
 .vscode
 .idea
+
+# Stray dev logs from manual `tauri dev > out 2> err` redirections
+/tauri-dev-*.txt

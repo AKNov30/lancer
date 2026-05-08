@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+// TODO(M1.2): replace inline styles with Tailwind + shadcn primitives
 
 export default function App() {
   const [msg, setMsg] = useState<string | null>(null);
@@ -18,9 +19,13 @@ export default function App() {
       <h1 style={{ margin: 0 }}>Lancer</h1>
       <p style={{ margin: 0, opacity: 0.7 }}>Send requests fast.</p>
       <button
-        onClick={async () =>
-          setMsg(await invoke<string>("greet", { name: "Lancer" }))
-        }
+        onClick={async () => {
+          try {
+            setMsg(await invoke<string>("greet", { name: "Lancer" }));
+          } catch (e) {
+            setMsg(`error: ${String(e)}`);
+          }
+        }}
       >
         Ping Rust
       </button>
