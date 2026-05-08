@@ -100,3 +100,62 @@ fn serialize_includes_required_blocks() {
         "disabled header should be ~-prefixed:\n{serialized}"
     );
 }
+
+#[test]
+fn workspace_round_trip_through_disk() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("login.bru");
+    let original = bru::parse(FIXTURE).expect("parse fixture");
+
+    // Use the public IO surface — write, then read back.
+    crate::collection::io::write_request(&path, &original).expect("write");
+    let back = crate::collection::io::read_request(&path).expect("read");
+
+    assert_eq!(original, back, "round-trip through disk lost data");
+}
+
+#[test]
+fn list_workspace_finds_bru_files_recursively() {
+    use std::fs;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+
+    // Create a small directory tree:
+    //   root/
+    //     login.bru
+    //     users/
+    //       get.bru
+    //     notes.txt           (must NOT be listed)
+    //     broken.bru          (parse failure → must NOT panic)
+    fs::create_dir_all(root.join("users")).unwrap();
+    let original = bru::parse(FIXTURE).unwrap();
+    crate::collection::io::write_request(&root.join("login.bru"), &original).unwrap();
+    crate::collection::io::write_request(&root.join("users").join("get.bru"), &original).unwrap();
+    fs::write(root.join("notes.txt"), "not a bru file").unwrap();
+    fs::write(root.join("broken.bru"), "this is not a bru file").unwrap();
+
+    let items = crate::collection::io::list_workspace(root).expect("list");
+
+    // Should have at least the two valid .bru files. Broken one is skipped silently.
+    let rels: Vec<&str> = items.iter().map(|i| i.rel_path.as_str()).collect();
+    assert!(
+        rels.iter().any(|r| r.ends_with("login.bru")),
+        "missing login.bru in {rels:?}"
+    );
+    assert!(
+        rels.iter().any(|r| r.ends_with("get.bru")),
+        "missing nested get.bru in {rels:?}"
+    );
+    // notes.txt must not be listed
+    assert!(
+        !rels.iter().any(|r| r.ends_with("notes.txt")),
+        "notes.txt should not appear in {rels:?}"
+    );
+
+    // Each item exposes name and method
+    for item in &items {
+        assert_eq!(item.name, "Get user");
+        assert_eq!(item.method, "GET");
+        assert_eq!(item.seq, Some(1));
+    }
+}
