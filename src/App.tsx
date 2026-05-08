@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 export default function App() {
@@ -19,9 +19,7 @@ export default function App() {
       >
         Ping Rust
       </Button>
-      {msg && (
-        <pre className="font-mono text-xs text-muted-foreground">{msg}</pre>
-      )}
+      {msg && <pre className="font-mono text-xs text-muted-foreground">{msg}</pre>}
     </main>
   );
 }
