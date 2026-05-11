@@ -365,3 +365,70 @@ async fn oauth2_cc_reuses_cached_token_until_expiry() {
 
     server.abort();
 }
+
+#[tokio::test]
+async fn aws_sigv4_adds_required_headers() {
+    let state = AppState::default();
+    let req = HttpRequest::new(
+        "https://lambda.us-east-1.amazonaws.com/2015-03-31/functions/foo/invocations",
+    );
+    let req = apply_auth(
+        req,
+        &Auth::AwsSigV4 {
+            access_key_id: "AKIDEXAMPLE".into(),
+            secret_access_key: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY".into(),
+            session_token: None,
+            region: "us-east-1".into(),
+            service: "lambda".into(),
+        },
+        &state,
+    )
+    .await
+    .expect("apply_auth");
+
+    let auth = req
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("Authorization"))
+        .expect("Authorization header must be present");
+    assert!(auth.1.starts_with("AWS4-HMAC-SHA256 "), "got: {}", auth.1);
+    assert!(
+        auth.1.contains("Credential=AKIDEXAMPLE/"),
+        "got: {}",
+        auth.1
+    );
+    assert!(auth.1.contains("Signature="), "got: {}", auth.1);
+
+    assert!(
+        req.headers
+            .iter()
+            .any(|(k, _)| k.eq_ignore_ascii_case("x-amz-date")),
+        "expected x-amz-date header"
+    );
+}
+
+#[tokio::test]
+async fn aws_sigv4_includes_session_token_header_when_provided() {
+    let state = AppState::default();
+    let req = HttpRequest::new(
+        "https://lambda.us-east-1.amazonaws.com/2015-03-31/functions/foo/invocations",
+    );
+    let req = apply_auth(
+        req,
+        &Auth::AwsSigV4 {
+            access_key_id: "AKIDEXAMPLE".into(),
+            secret_access_key: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY".into(),
+            session_token: Some("session-token-xyz".into()),
+            region: "us-east-1".into(),
+            service: "lambda".into(),
+        },
+        &state,
+    )
+    .await
+    .unwrap();
+    let t = req
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("x-amz-security-token"));
+    assert_eq!(t.map(|(_, v)| v.as_str()), Some("session-token-xyz"));
+}

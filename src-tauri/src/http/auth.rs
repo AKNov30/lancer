@@ -1,3 +1,6 @@
+use aws_credential_types::Credentials;
+use aws_sigv4::http_request::{sign, SignableBody, SignableRequest, SigningSettings};
+use aws_sigv4::sign::v4;
 use base64::Engine;
 use std::time::{Duration, SystemTime};
 use thiserror::Error;
@@ -79,6 +82,90 @@ async fn fetch_oauth2_token(
     })
 }
 
+fn sign_aws(
+    req: &mut HttpRequest,
+    access_key_id: &str,
+    secret_access_key: &str,
+    session_token: &Option<String>,
+    region: &str,
+    service: &str,
+) -> Result<(), AuthError> {
+    let creds = Credentials::new(
+        access_key_id,
+        secret_access_key,
+        session_token.clone(),
+        None,
+        "lancer",
+    );
+
+    let identity = creds.into();
+
+    let signing_params = v4::SigningParams::builder()
+        .identity(&identity)
+        .region(region)
+        .name(service)
+        .time(SystemTime::now())
+        .settings(SigningSettings::default())
+        .build()
+        .map_err(|e| AuthError::AwsSigV4(e.to_string()))?
+        .into();
+
+    let body_bytes: Vec<u8> = match &req.body {
+        None | Some(crate::http::types::RequestBody::None) => Vec::new(),
+        Some(crate::http::types::RequestBody::Json { value }) => {
+            serde_json::to_vec(value).map_err(|e| AuthError::AwsSigV4(e.to_string()))?
+        }
+        Some(crate::http::types::RequestBody::Text { value, .. }) => value.as_bytes().to_vec(),
+        Some(crate::http::types::RequestBody::Form { fields }) => fields
+            .iter()
+            .enumerate()
+            .fold(String::new(), |mut acc, (i, (k, v))| {
+                if i > 0 {
+                    acc.push('&');
+                }
+                acc.push_str(k);
+                acc.push('=');
+                acc.push_str(v);
+                acc
+            })
+            .into_bytes(),
+    };
+
+    let headers_ref: Vec<(&str, &str)> = req
+        .headers
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+
+    let method_str = match req.method {
+        crate::http::types::Method::Get => "GET",
+        crate::http::types::Method::Post => "POST",
+        crate::http::types::Method::Put => "PUT",
+        crate::http::types::Method::Patch => "PATCH",
+        crate::http::types::Method::Delete => "DELETE",
+        crate::http::types::Method::Head => "HEAD",
+        crate::http::types::Method::Options => "OPTIONS",
+    };
+
+    let signable = SignableRequest::new(
+        method_str,
+        req.url.as_str(),
+        headers_ref.into_iter(),
+        SignableBody::Bytes(&body_bytes),
+    )
+    .map_err(|e| AuthError::AwsSigV4(e.to_string()))?;
+
+    let signing_output =
+        sign(signable, &signing_params).map_err(|e| AuthError::AwsSigV4(e.to_string()))?;
+    let (instructions, _signature) = signing_output.into_parts();
+
+    for (name, value) in instructions.headers() {
+        req.headers.push((name.to_string(), value.to_string()));
+    }
+
+    Ok(())
+}
+
 pub async fn apply_auth(
     mut req: HttpRequest,
     auth: &Auth,
@@ -137,8 +224,22 @@ pub async fn apply_auth(
             ));
             Ok(req)
         }
-        Auth::AwsSigV4 { .. } => Err(AuthError::AwsSigV4(
-            "AWS SigV4 not yet implemented (M5.6)".into(),
-        )),
+        Auth::AwsSigV4 {
+            access_key_id,
+            secret_access_key,
+            session_token,
+            region,
+            service,
+        } => {
+            sign_aws(
+                &mut req,
+                access_key_id,
+                secret_access_key,
+                session_token,
+                region,
+                service,
+            )?;
+            Ok(req)
+        }
     }
 }
