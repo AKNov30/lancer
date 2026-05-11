@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { OpenApiImportDialog } from "@/components/importers/openapi-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { readRequest } from "@/lib/tauri";
@@ -64,9 +65,12 @@ export function Sidebar() {
         <span className="truncate font-mono text-muted-foreground text-xs" title={rootPath}>
           {rootPath}
         </span>
-        <Button variant="ghost" size="sm" onClick={() => void openFolder()}>
-          Change
-        </Button>
+        <div className="flex items-center gap-1">
+          <OpenApiImportDialog />
+          <Button variant="ghost" size="sm" onClick={() => void openFolder()}>
+            Change
+          </Button>
+        </div>
       </div>
       <ScrollArea className="flex-1">
         {loading && <div className="p-3 text-muted-foreground text-xs">Loading…</div>}

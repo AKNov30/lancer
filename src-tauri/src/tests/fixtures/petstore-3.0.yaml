@@ -1,0 +1,43 @@
+openapi: 3.0.0
+info:
+  title: Petstore
+  version: 1.0.0
+servers:
+  - url: https://petstore.example.com/v1
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List all pets
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, example: 100 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object }
+              example: []
+    post:
+      operationId: createPet
+      summary: Create a pet
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+            example: { name: "Fido", tag: "dog" }
+      responses:
+        '201': { description: created }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
