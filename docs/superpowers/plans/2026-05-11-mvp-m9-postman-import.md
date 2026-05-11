@@ -12,7 +12,7 @@
 - Postman **variables** (`{{var}}`) translate identically — same `{{}}` syntax.
 - Postman **environments** become Lancer env files in `environments/`.
 - Postman **auth** (5 of ~12 types directly supported) translates to `Auth`; unsupported types are recorded in a `// TODO:` comment in the resulting `.bru` and surfaced in the import report.
-- Postman **pre-request and test scripts** are preserved as **comments** for now (Lancer's test runner is Pro-tier, lands in Phase 2). The import surfaces a warning saying "scripts preserved as comments; runner coming in Pro".
+- Postman **pre-request and test scripts** are preserved in explicit `script:pre-request` and `script:post-response` blocks in the `.bru` format (see M9.4.1 for details). These blocks are written verbatim but are NOT executed in M9 — they are inert until the Pro-tier test runner lands in Phase 2. The import report notes any request that carried scripts.
 - Import is **non-destructive**: existing `.bru` files are skipped with a clear report row.
 
 ---
@@ -27,14 +27,14 @@
 - Auth: noauth, bearer, basic, apikey, oauth2 (client-credentials flow only), awsv4
 - Variables (collection + environment levels)
 - Postman environment JSON → Lancer env file
-- Test/pre-request scripts preserved as comments
+- Test/pre-request scripts preserved in `script:pre-request` / `script:post-response` blocks (inert until Phase 2 test runner)
 
 **Out:**
 - Postman v1 / v2.0 (user must export as v2.1 first)
 - Mock servers (Postman's hosted mock is paywalled anyway)
 - Workspace / team metadata
 - Monitors, flows, governance
-- Folder-level scripts (preserved as comments only at folder root)
+- Folder-level scripts (not preserved — folder items have no `.bru` file to attach script blocks to)
 - OAuth 2 authorization code flow (no PKCE support yet)
 - Cookies / sessions
 
@@ -511,6 +511,23 @@ git commit -m "feat(import/postman): auth converter (5 of 12 Postman auth types)
 
 ### Task 9.4.1 — Recursive walk preserving folder hierarchy
 
+**Scripts handling:** Postman items include `event[].script.exec` (pre-request and post-response JS).
+The current `.bru` format has no comment or script block. M9 will:
+
+1. Add an explicit `script:pre-request` and `script:post-response` block to the `.bru` format,
+   under the `_lancer/` namespace reserved in SPEC §12 Decision A. These blocks are written
+   verbatim (preserving the JS source) but are NOT executed in M9 — they are inert until the
+   Pro-tier test runner lands in Phase 2.
+
+2. The bru parser is extended to recognize `script:pre-request` and `script:post-response` as
+   passthrough blocks (no parsing of the content; just preserve as raw string in `Request`).
+   This requires a new field `pub pre_request_script: Option<String>` and
+   `pub post_response_script: Option<String>` on `collection::schema::Request`.
+
+3. The bru serializer writes the blocks back unchanged when present.
+
+This makes "scripts preserved" a real promise rather than a placeholder warning.
+
 - [ ] **Implementation (`importers/postman/walk.rs`):**
 
 ```rust
@@ -557,20 +574,29 @@ fn walk(item: &pm::Item, dir: &Path, seq: u32, report: &mut PostmanImportReport)
         match super::convert::convert_request(pm_req, &item.name) {
             Ok(mut req) => {
                 req.seq = Some(seq);
+                // Populate script blocks from Postman events. The bru serializer
+                // will write `script:pre-request` and `script:post-response` blocks
+                // verbatim. They are inert in M9 (no test runner yet).
+                for event in &item.event {
+                    let source = event.script.exec.join("\n");
+                    match event.listen.as_str() {
+                        "prerequest" => req.pre_request_script = Some(source),
+                        "test" => req.post_response_script = Some(source),
+                        _ => {}
+                    }
+                }
+                if req.pre_request_script.is_some() || req.post_response_script.is_some() {
+                    report.warnings.push(format!(
+                        "{}: script(s) preserved in script:pre-request / script:post-response blocks; \
+                         runner is Pro tier (Phase 2)",
+                        item.name,
+                    ));
+                }
                 let filename = format!("{}.bru", sanitize_folder(&item.name));
                 let dest = dir.join(filename);
                 if dest.exists() {
                     report.skipped_existing.push(dest);
                     return;
-                }
-                // Stash scripts as comments in the name field (or as a separate
-                // companion file once script blocks ship).
-                if !item.event.is_empty() {
-                    report.warnings.push(format!(
-                        "{}: {} script(s) preserved as comments; runner is Pro tier",
-                        item.name,
-                        item.event.len()
-                    ));
                 }
                 if let Err(e) = crate::collection::io::write_request(&dest, &req) {
                     report.errors.push(format!("{}: {}", item.name, e));
@@ -671,7 +697,7 @@ Publish results in a blog post. Use this as launch content.
 - [x] Subset schema with `serde_json::Value` escape hatch for forward-compat.
 - [x] Non-destructive: skip existing `.bru` files.
 - [x] Auth coverage: 5 of 12 types (the 5 we natively support).
-- [x] Scripts preserved as comments (M9 doesn't run them).
+- [x] Scripts preserved verbatim in `script:pre-request` / `script:post-response` bru blocks; bru parser and serializer extended to round-trip them as raw strings (M9 doesn't execute them — Phase 2 test runner).
 - [x] Folder hierarchy preserved.
 - [x] Env conversion includes secret-name detection.
 
