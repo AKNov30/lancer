@@ -14,6 +14,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(state::AppState::default())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::http::send_request,
             commands::workspace::list_workspace,
