@@ -96,8 +96,11 @@ export function Sidebar() {
                   }}
                 >
                   <span
-                    className="w-12 shrink-0 font-mono font-semibold text-[10px] uppercase tracking-wider"
-                    style={{ color: METHOD_COLOR[m] }}
+                    className="w-12 shrink-0 rounded-sm px-1 py-px text-center font-mono font-semibold text-[10px] uppercase tracking-wider"
+                    style={{
+                      color: METHOD_COLOR[m],
+                      backgroundColor: `color-mix(in oklch, ${METHOD_COLOR[m]} 15%, transparent)`,
+                    }}
                   >
                     {m}
                   </span>

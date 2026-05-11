@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRequest } from "@/stores/request-store";
@@ -24,9 +27,11 @@ export function ResponseViewer() {
   const error = useRequest((s) => s.error);
   const loading = useRequest((s) => s.loading);
 
+  const formattedBody = useMemo(() => prettyBody(response?.bodyText), [response?.bodyText]);
+
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full flex-col items-center justify-center gap-2">
         <span className="font-mono text-muted-foreground text-sm">Sending…</span>
       </div>
     );
@@ -34,17 +39,24 @@ export function ResponseViewer() {
 
   if (error) {
     return (
-      <div className="m-4 rounded-md border border-destructive/40 bg-destructive/10 p-3">
-        <div className="mb-1 font-semibold text-destructive text-xs">Request failed</div>
-        <pre className="whitespace-pre-wrap font-mono text-xs">{error}</pre>
+      <div className="m-4">
+        <Alert variant="destructive">
+          <AlertTitle>Request failed</AlertTitle>
+          <AlertDescription>
+            <pre className="whitespace-pre-wrap font-mono text-xs">{error}</pre>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   if (!response) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <span className="text-muted-foreground text-sm">No response yet.</span>
+      <div className="flex h-full items-center justify-center p-6">
+        <Card className="max-w-sm p-6 text-center">
+          <h2 className="mb-2 font-display text-2xl italic">No response yet.</h2>
+          <p className="text-muted-foreground text-xs">Send a request to see the result here.</p>
+        </Card>
       </div>
     );
   }
@@ -67,9 +79,7 @@ export function ResponseViewer() {
         </TabsList>
         <TabsContent value="body" className="flex-1">
           <ScrollArea className="h-full">
-            <pre className="whitespace-pre-wrap p-3 font-mono text-xs">
-              {prettyBody(response.bodyText)}
-            </pre>
+            <pre className="whitespace-pre-wrap p-3 font-mono text-xs">{formattedBody}</pre>
           </ScrollArea>
         </TabsContent>
         <TabsContent value="headers" className="flex-1">
