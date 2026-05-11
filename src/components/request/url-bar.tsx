@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sendRequest } from "@/lib/tauri";
+import { useEnv } from "@/stores/env-store";
 import { useRequest } from "@/stores/request-store";
+import { useWorkspace } from "@/stores/workspace-store";
 import { MethodSelect } from "./method-select";
 
 export function UrlBar() {
@@ -13,13 +15,18 @@ export function UrlBar() {
   const setResponse = useRequest((s) => s.setResponse);
   const setLoading = useRequest((s) => s.setLoading);
   const setError = useRequest((s) => s.setError);
+  const workspaceRoot = useWorkspace((s) => s.rootPath);
+  const activeEnv = useEnv((s) => s.activeEnv);
 
   async function onSend() {
     if (!request.url) return;
     setError(null);
     setLoading(true);
     try {
-      const resp = await sendRequest(request, auth);
+      const resp = await sendRequest(request, auth, {
+        workspaceRoot: workspaceRoot ?? undefined,
+        envName: activeEnv,
+      });
       setResponse(resp);
     } catch (e) {
       setError(String(e));

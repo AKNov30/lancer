@@ -1,8 +1,22 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Auth, HttpRequest, HttpResponse, Method } from "@/lib/types";
 
-export async function sendRequest(req: HttpRequest, auth?: Auth | null): Promise<HttpResponse> {
-  return invoke<HttpResponse>("send_request", { req, auth: auth ?? null });
+export interface SendOptions {
+  workspaceRoot?: string | null;
+  envName?: string | null;
+}
+
+export async function sendRequest(
+  req: HttpRequest,
+  auth?: Auth | null,
+  opts?: SendOptions,
+): Promise<HttpResponse> {
+  return invoke<HttpResponse>("send_request", {
+    req,
+    auth: auth ?? null,
+    workspaceRoot: opts?.workspaceRoot ?? null,
+    envName: opts?.envName ?? null,
+  });
 }
 
 export interface KvEnabled {
@@ -50,3 +64,41 @@ export const readRequest = (path: string): Promise<CollectionRequest> =>
 
 export const writeRequest = (path: string, req: CollectionRequest): Promise<void> =>
   invoke<void>("write_request", { path, req });
+
+export interface Environment {
+  name: string;
+  vars: [string, string][];
+  secretNames: string[];
+}
+
+export const listEnvs = (workspaceRoot: string): Promise<string[]> =>
+  invoke<string[]>("list_envs", { workspaceRoot });
+
+export const readEnv = (workspaceRoot: string, name: string): Promise<Environment> =>
+  invoke<Environment>("read_env", { workspaceRoot, name });
+
+export const writeEnv = (workspaceRoot: string, env: Environment): Promise<void> =>
+  invoke<void>("write_env", { workspaceRoot, env });
+
+export const deleteEnv = (workspaceRoot: string, name: string): Promise<void> =>
+  invoke<void>("delete_env", { workspaceRoot, name });
+
+export const getSecret = (
+  workspaceRoot: string,
+  envName: string,
+  varName: string,
+): Promise<string | null> =>
+  invoke<string | null>("get_secret", { workspaceRoot, envName, varName });
+
+export const setSecret = (
+  workspaceRoot: string,
+  envName: string,
+  varName: string,
+  value: string,
+): Promise<void> => invoke<void>("set_secret", { workspaceRoot, envName, varName, value });
+
+export const deleteSecret = (
+  workspaceRoot: string,
+  envName: string,
+  varName: string,
+): Promise<void> => invoke<void>("delete_secret", { workspaceRoot, envName, varName });
