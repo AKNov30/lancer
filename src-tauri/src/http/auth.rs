@@ -2,6 +2,7 @@ use aws_credential_types::Credentials;
 use aws_sigv4::http_request::{sign, SignableBody, SignableRequest, SigningSettings};
 use aws_sigv4::sign::v4;
 use base64::Engine;
+use sha2::{Digest, Sha256};
 use std::time::{Duration, SystemTime};
 use thiserror::Error;
 
@@ -25,17 +26,43 @@ impl serde::Serialize for AuthError {
     }
 }
 
+/// Returns a hex SHA-256 digest of the five OAuth2 CC fields, separated by
+/// the ASCII Unit Separator (0x1F) which cannot appear in normal config strings.
+/// Includes client_secret so that rotated secrets invalidate the cached token.
+pub(crate) fn oauth2_cache_key(
+    token_url: &str,
+    client_id: &str,
+    client_secret: &str,
+    scope: &str,
+    audience: &str,
+) -> String {
+    let mut h = Sha256::new();
+    for part in [token_url, client_id, client_secret, scope, audience] {
+        h.update(part.as_bytes());
+        h.update(b"\x1f"); // unit separator — won't appear in inputs
+    }
+    format!("{:x}", h.finalize())
+}
+
+/// Rejects any header value that contains control characters (0x00–0x1F or
+/// 0x7F). These are unsafe and forbidden in HTTP/1.1 header field values.
+fn validate_header_safe(value: &str, field: &str) -> Result<(), AuthError> {
+    if value.bytes().any(|b| matches!(b, 0..=0x1F | 0x7F)) {
+        return Err(AuthError::Invalid(format!(
+            "{field} contains control characters; this is unsafe in HTTP headers"
+        )));
+    }
+    Ok(())
+}
+
 async fn fetch_oauth2_token(
+    client: &reqwest::Client,
     token_url: &str,
     client_id: &str,
     client_secret: &str,
     scope: &str,
     audience: &str,
 ) -> Result<crate::state::OAuth2Entry, AuthError> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()
-        .map_err(|e| AuthError::OAuth2(e.to_string()))?;
     let mut form: Vec<(&str, &str)> = vec![
         ("grant_type", "client_credentials"),
         ("client_id", client_id),
@@ -174,11 +201,14 @@ pub async fn apply_auth(
     match auth {
         Auth::None => Ok(req),
         Auth::Bearer { token } => {
+            validate_header_safe(token, "Bearer token")?;
             req.headers
                 .push(("Authorization".into(), format!("Bearer {token}")));
             Ok(req)
         }
         Auth::Basic { username, password } => {
+            validate_header_safe(username, "Basic username")?;
+            validate_header_safe(password, "Basic password")?;
             let raw = format!("{username}:{password}");
             let b64 = base64::engine::general_purpose::STANDARD.encode(raw);
             req.headers
@@ -191,7 +221,11 @@ pub async fn apply_auth(
             location,
         } => {
             match location.as_str() {
-                "header" => req.headers.push((key.clone(), value.clone())),
+                "header" => {
+                    validate_header_safe(key, "ApiKey key")?;
+                    validate_header_safe(value, "ApiKey value")?;
+                    req.headers.push((key.clone(), value.clone()));
+                }
                 "query" => req.query.push((key.clone(), value.clone())),
                 other => {
                     return Err(AuthError::Invalid(format!(
@@ -208,13 +242,19 @@ pub async fn apply_auth(
             scope,
             audience,
         } => {
-            let key = format!("{token_url}|{client_id}|{scope}|{audience}");
+            let key = oauth2_cache_key(token_url, client_id, client_secret, scope, audience);
             let entry = if let Some(e) = state.oauth2_cache.get(&key).await {
                 e
             } else {
-                let fresh =
-                    fetch_oauth2_token(token_url, client_id, client_secret, scope, audience)
-                        .await?;
+                let fresh = fetch_oauth2_token(
+                    &state.http_client,
+                    token_url,
+                    client_id,
+                    client_secret,
+                    scope,
+                    audience,
+                )
+                .await?;
                 state.oauth2_cache.put(key, fresh.clone()).await;
                 fresh
             };

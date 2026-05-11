@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use tokio::sync::RwLock;
 
@@ -27,11 +28,34 @@ impl OAuth2Cache {
 
     pub async fn put(&self, key: String, entry: OAuth2Entry) {
         let mut guard = self.inner.write().await;
+        let now = std::time::SystemTime::now();
+        guard.retain(|_, e| e.expires_at > now); // evict expired
         guard.insert(key, entry);
     }
 }
 
-#[derive(Debug, Default)]
+const REQUEST_TIMEOUT_SECS: u64 = 30;
+const CONNECT_TIMEOUT_SECS: u64 = 10;
+
+#[derive(Debug)]
 pub struct AppState {
     pub oauth2_cache: OAuth2Cache,
+    pub http_client: reqwest::Client,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        let http_client = reqwest::Client::builder()
+            .user_agent(concat!("Lancer/", env!("CARGO_PKG_VERSION")))
+            .cookie_store(true)
+            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+            .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
+            .redirect(reqwest::redirect::Policy::limited(10))
+            .build()
+            .expect("failed to build reqwest Client");
+        Self {
+            oauth2_cache: OAuth2Cache::default(),
+            http_client,
+        }
+    }
 }

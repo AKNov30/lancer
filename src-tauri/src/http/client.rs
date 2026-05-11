@@ -1,5 +1,5 @@
 use crate::http::types::{HttpRequest, HttpResponse, Method, RequestBody};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -16,18 +16,7 @@ impl serde::Serialize for HttpError {
     }
 }
 
-const REQUEST_TIMEOUT_SECS: u64 = 30;
-const CONNECT_TIMEOUT_SECS: u64 = 10;
-
-pub async fn send(req: HttpRequest) -> Result<HttpResponse, HttpError> {
-    let client = reqwest::Client::builder()
-        .user_agent(concat!("Lancer/", env!("CARGO_PKG_VERSION")))
-        .cookie_store(true)
-        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
-        .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
-        .redirect(reqwest::redirect::Policy::limited(10))
-        .build()?;
-
+pub async fn send(client: &reqwest::Client, req: HttpRequest) -> Result<HttpResponse, HttpError> {
     let method = match req.method {
         Method::Get => reqwest::Method::GET,
         Method::Post => reqwest::Method::POST,

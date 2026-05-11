@@ -17,5 +17,7 @@ pub async fn send_request(
             .map_err(|e| e.to_string())?,
         None => req,
     };
-    client::send(req).await.map_err(|e| e.to_string())
+    client::send(&state.inner().http_client, req)
+        .await
+        .map_err(|e| e.to_string())
 }

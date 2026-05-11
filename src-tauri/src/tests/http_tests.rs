@@ -1,5 +1,6 @@
 use crate::http::client::send;
 use crate::http::types::{HttpRequest, HttpResponse, Method};
+use crate::state::AppState;
 
 #[test]
 fn http_request_default_method_is_get() {
@@ -59,8 +60,11 @@ fn request_body_json_round_trip() {
 
 #[tokio::test]
 async fn send_get_returns_2xx_for_httpbin() {
+    let state = AppState::default();
     let req = HttpRequest::new("https://httpbin.org/get");
-    let resp = send(req).await.expect("request should succeed");
+    let resp = send(&state.http_client, req)
+        .await
+        .expect("request should succeed");
     assert_eq!(
         resp.status / 100,
         2,
@@ -88,12 +92,15 @@ async fn send_get_returns_2xx_for_httpbin() {
 #[tokio::test]
 async fn send_post_with_json_body_echoes() {
     use crate::http::types::{Method, RequestBody};
+    let state = AppState::default();
     let mut req = HttpRequest::new("https://httpbin.org/post");
     req.method = Method::Post;
     req.body = Some(RequestBody::Json {
         value: serde_json::json!({ "hello": "lancer", "n": 42 }),
     });
-    let resp = send(req).await.expect("request should succeed");
+    let resp = send(&state.http_client, req)
+        .await
+        .expect("request should succeed");
     assert_eq!(resp.status, 200);
     let text = resp.body_text.unwrap();
     // httpbin echoes the json field
@@ -109,12 +116,15 @@ async fn send_post_with_json_body_echoes() {
 
 #[tokio::test]
 async fn send_with_query_params_appears_in_url() {
+    let state = AppState::default();
     let mut req = HttpRequest::new("https://httpbin.org/get");
     req.query = vec![
         ("foo".to_string(), "bar baz".to_string()),
         ("n".to_string(), "1".to_string()),
     ];
-    let resp = send(req).await.expect("request should succeed");
+    let resp = send(&state.http_client, req)
+        .await
+        .expect("request should succeed");
     assert_eq!(resp.status, 200);
     let text = resp.body_text.unwrap();
     // httpbin echoes args
@@ -127,9 +137,12 @@ async fn send_with_query_params_appears_in_url() {
 
 #[tokio::test]
 async fn send_with_headers_passes_through() {
+    let state = AppState::default();
     let mut req = HttpRequest::new("https://httpbin.org/headers");
     req.headers = vec![("X-Lancer-Test".to_string(), "ok".to_string())];
-    let resp = send(req).await.expect("request should succeed");
+    let resp = send(&state.http_client, req)
+        .await
+        .expect("request should succeed");
     assert_eq!(resp.status, 200);
     let text = resp.body_text.unwrap();
     // httpbin echoes headers (case-insensitive on its side)
@@ -148,7 +161,6 @@ fn send_request_command_function_exists() {
 
 use crate::collection::schema::Auth;
 use crate::http::auth::apply_auth;
-use crate::state::AppState;
 
 #[tokio::test]
 async fn bearer_auth_adds_authorization_header() {
@@ -431,4 +443,63 @@ async fn aws_sigv4_includes_session_token_header_when_provided() {
         .iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("x-amz-security-token"));
     assert_eq!(t.map(|(_, v)| v.as_str()), Some("session-token-xyz"));
+}
+
+// ── A5: new hardening tests ───────────────────────────────────────────────────
+
+#[tokio::test]
+async fn bearer_rejects_token_with_newline() {
+    let state = AppState::default();
+    let req = HttpRequest::new("https://example.com");
+    let result = apply_auth(
+        req,
+        &Auth::Bearer {
+            token: "abc\r\nX-Inject: yes".into(),
+        },
+        &state,
+    )
+    .await;
+    assert!(result.is_err(), "expected validation rejection");
+}
+
+#[tokio::test]
+async fn oauth2_cache_evicts_expired_on_put() {
+    use crate::state::{OAuth2Cache, OAuth2Entry};
+    use std::time::{Duration, SystemTime};
+
+    let cache = OAuth2Cache::default();
+    // Insert an expired entry
+    cache
+        .put(
+            "expired".into(),
+            OAuth2Entry {
+                access_token: "old".into(),
+                expires_at: SystemTime::now() - Duration::from_secs(1),
+            },
+        )
+        .await;
+    // Insert a fresh entry — should evict the expired one
+    cache
+        .put(
+            "fresh".into(),
+            OAuth2Entry {
+                access_token: "new".into(),
+                expires_at: SystemTime::now() + Duration::from_secs(3600),
+            },
+        )
+        .await;
+    // Both `get` calls — expired returns None, fresh returns Some
+    assert!(cache.get("expired").await.is_none());
+    assert!(cache.get("fresh").await.is_some());
+}
+
+#[test]
+fn oauth2_cache_key_includes_client_secret() {
+    use crate::http::auth::oauth2_cache_key;
+    let k1 = oauth2_cache_key("https://t", "id", "secret-A", "scope", "");
+    let k2 = oauth2_cache_key("https://t", "id", "secret-B", "scope", "");
+    assert_ne!(
+        k1, k2,
+        "different client_secret must produce different keys"
+    );
 }

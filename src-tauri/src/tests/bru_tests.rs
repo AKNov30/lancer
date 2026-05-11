@@ -219,3 +219,34 @@ fn aws_round_trips_through_serialize() {
     let back = bru::parse(&serialized).expect("reparse");
     assert_eq!(req, back, "AWS round-trip failed:\n{serialized}");
 }
+
+#[test]
+fn parse_empty_string_returns_err() {
+    let result = bru::parse("");
+    assert!(matches!(result, Err(bru::BruError::MissingBlock("meta"))));
+}
+
+#[test]
+fn parse_no_method_block_returns_err() {
+    let input = "meta {\n  name: x\n  type: http\n}\n";
+    let result = bru::parse(input);
+    assert!(matches!(result, Err(bru::BruError::NoMethodBlock)));
+}
+
+#[test]
+fn parse_unterminated_block_returns_err() {
+    let input = "meta {\n  name: x\n"; // missing closing brace
+    let result = bru::parse(input);
+    assert!(
+        matches!(result, Err(bru::BruError::Lex(_))),
+        "expected lex error, got {result:?}"
+    );
+}
+
+#[test]
+fn parse_unknown_auth_returns_err() {
+    let input =
+        "meta {\n  name: x\n  type: http\n}\n\nget {\n  url: https://x\n  auth: martian\n}\n";
+    let result = bru::parse(input);
+    assert!(matches!(result, Err(bru::BruError::UnknownAuth(_))));
+}
