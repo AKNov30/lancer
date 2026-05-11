@@ -73,3 +73,35 @@ jobs:
       - name: cargo audit
         run: cargo audit --manifest-path src-tauri/Cargo.toml
         continue-on-error: true
+
+  bundle-size:
+    name: Bundle size gate
+    runs-on: ubuntu-latest
+    needs: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm vite build
+      - name: Check bundle size
+        shell: bash
+        run: |
+          set -euo pipefail
+          JS_LIMIT_KB=500
+          CSS_LIMIT_KB=150
+          JS_KB=$(du -b dist/assets/*.js 2>/dev/null | awk '{sum+=$1} END {print int(sum/1024)}')
+          CSS_KB=$(du -b dist/assets/*.css 2>/dev/null | awk '{sum+=$1} END {print int(sum/1024)}')
+          echo "JS:  ${JS_KB} KB (limit ${JS_LIMIT_KB} KB)"
+          echo "CSS: ${CSS_KB} KB (limit ${CSS_LIMIT_KB} KB)"
+          fail=0
+          [ "${JS_KB}" -gt "${JS_LIMIT_KB}" ] && { echo "::error::JS bundle ${JS_KB} KB exceeds ${JS_LIMIT_KB} KB"; fail=1; }
+          [ "${CSS_KB}" -gt "${CSS_LIMIT_KB}" ] && { echo "::error::CSS bundle ${CSS_KB} KB exceeds ${CSS_LIMIT_KB} KB"; fail=1; }
+          exit $fail
