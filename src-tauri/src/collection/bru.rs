@@ -216,6 +216,37 @@ pub fn parse(input: &str) -> Result<Request, BruError> {
                 location: kv.get("in").cloned().unwrap_or_else(|| "header".into()),
             })
         }
+        Some("oauth2") => {
+            let kv = parse_kv_block(
+                blocks
+                    .map
+                    .get("auth:oauth2")
+                    .ok_or(BruError::MissingBlock("auth:oauth2"))?,
+            )?;
+            Some(Auth::OAuth2Cc {
+                token_url: kv.get("access_token_url").cloned().unwrap_or_default(),
+                client_id: kv.get("client_id").cloned().unwrap_or_default(),
+                client_secret: kv.get("client_secret").cloned().unwrap_or_default(),
+                scope: kv.get("scope").cloned().unwrap_or_default(),
+                audience: kv.get("audience").cloned().unwrap_or_default(),
+            })
+        }
+        Some("awsv4") => {
+            let kv = parse_kv_block(
+                blocks
+                    .map
+                    .get("auth:awsv4")
+                    .ok_or(BruError::MissingBlock("auth:awsv4"))?,
+            )?;
+            let session_token = kv.get("session_token").filter(|s| !s.is_empty()).cloned();
+            Some(Auth::AwsSigV4 {
+                access_key_id: kv.get("access_key_id").cloned().unwrap_or_default(),
+                secret_access_key: kv.get("secret_access_key").cloned().unwrap_or_default(),
+                session_token,
+                region: kv.get("region").cloned().unwrap_or_default(),
+                service: kv.get("service").cloned().unwrap_or_default(),
+            })
+        }
         Some(other) => return Err(BruError::UnknownAuth(other.to_string())),
     };
 
@@ -309,7 +340,6 @@ pub fn serialize(req: &Request) -> String {
         Some(Auth::Bearer { .. }) => "bearer",
         Some(Auth::Basic { .. }) => "basic",
         Some(Auth::ApiKey { .. }) => "apikey",
-        // M5.2 will add .bru serialisation for these variants
         Some(Auth::OAuth2Cc { .. }) => "oauth2",
         Some(Auth::AwsSigV4 { .. }) => "awsv4",
     };
@@ -352,8 +382,39 @@ pub fn serialize(req: &Request) -> String {
             out.push_str("}\n\n");
         }
         Some(Auth::None) | None => {}
-        // M5.2 will add .bru serialisation for these variants
-        Some(Auth::OAuth2Cc { .. }) | Some(Auth::AwsSigV4 { .. }) => {}
+        Some(Auth::OAuth2Cc {
+            token_url,
+            client_id,
+            client_secret,
+            scope,
+            audience,
+        }) => {
+            out.push_str("auth:oauth2 {\n");
+            out.push_str("  grant_type: client_credentials\n");
+            out.push_str(&format!("  access_token_url: {token_url}\n"));
+            out.push_str(&format!("  client_id: {client_id}\n"));
+            out.push_str(&format!("  client_secret: {client_secret}\n"));
+            out.push_str(&format!("  scope: {scope}\n"));
+            out.push_str(&format!("  audience: {audience}\n"));
+            out.push_str("}\n\n");
+        }
+        Some(Auth::AwsSigV4 {
+            access_key_id,
+            secret_access_key,
+            session_token,
+            region,
+            service,
+        }) => {
+            out.push_str("auth:awsv4 {\n");
+            out.push_str(&format!("  access_key_id: {access_key_id}\n"));
+            out.push_str(&format!("  secret_access_key: {secret_access_key}\n"));
+            if let Some(token) = session_token {
+                out.push_str(&format!("  session_token: {token}\n"));
+            }
+            out.push_str(&format!("  region: {region}\n"));
+            out.push_str(&format!("  service: {service}\n"));
+            out.push_str("}\n\n");
+        }
     }
 
     match &req.body {

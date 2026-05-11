@@ -1,0 +1,25 @@
+meta {
+  name: Invoke lambda
+  type: http
+  seq: 1
+}
+
+post {
+  url: https://lambda.us-east-1.amazonaws.com/2015-03-31/functions/foo/invocations
+  body: json
+  auth: awsv4
+}
+
+auth:awsv4 {
+  access_key_id: {{awsAccessKey}}
+  secret_access_key: {{awsSecret}}
+  session_token: {{awsSession}}
+  region: us-east-1
+  service: lambda
+}
+
+body:json {
+  {
+    "name": "Lancer"
+  }
+}

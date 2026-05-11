@@ -3,6 +3,8 @@ use crate::collection::schema::{Auth, KvEnabled};
 use crate::http::types::Method;
 
 const FIXTURE: &str = include_str!("fixtures/simple.bru");
+const OAUTH2_FIXTURE: &str = include_str!("fixtures/auth-oauth2.bru");
+const AWS_FIXTURE: &str = include_str!("fixtures/auth-aws.bru");
 
 #[test]
 fn parses_simple_get_request() {
@@ -158,4 +160,62 @@ fn list_workspace_finds_bru_files_recursively() {
         assert_eq!(item.method, "GET");
         assert_eq!(item.seq, Some(1));
     }
+}
+
+#[test]
+fn parses_oauth2_cc_auth() {
+    let req = bru::parse(OAUTH2_FIXTURE).expect("parse");
+    match req.auth {
+        Some(Auth::OAuth2Cc {
+            token_url,
+            client_id,
+            client_secret,
+            scope,
+            audience,
+        }) => {
+            assert_eq!(token_url, "https://auth.example.com/oauth/token");
+            assert_eq!(client_id, "my-app");
+            assert_eq!(client_secret, "{{oauthSecret}}");
+            assert_eq!(scope, "read:users");
+            assert_eq!(audience, "https://api.example.com");
+        }
+        other => panic!("expected OAuth2Cc, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_aws_sigv4_auth() {
+    let req = bru::parse(AWS_FIXTURE).expect("parse");
+    match req.auth {
+        Some(Auth::AwsSigV4 {
+            access_key_id,
+            secret_access_key,
+            session_token,
+            region,
+            service,
+        }) => {
+            assert_eq!(access_key_id, "{{awsAccessKey}}");
+            assert_eq!(secret_access_key, "{{awsSecret}}");
+            assert_eq!(session_token, Some("{{awsSession}}".into()));
+            assert_eq!(region, "us-east-1");
+            assert_eq!(service, "lambda");
+        }
+        other => panic!("expected AwsSigV4, got {other:?}"),
+    }
+}
+
+#[test]
+fn oauth2_round_trips_through_serialize() {
+    let req = bru::parse(OAUTH2_FIXTURE).unwrap();
+    let serialized = bru::serialize(&req);
+    let back = bru::parse(&serialized).expect("reparse");
+    assert_eq!(req, back, "OAuth2 round-trip failed:\n{serialized}");
+}
+
+#[test]
+fn aws_round_trips_through_serialize() {
+    let req = bru::parse(AWS_FIXTURE).unwrap();
+    let serialized = bru::serialize(&req);
+    let back = bru::parse(&serialized).expect("reparse");
+    assert_eq!(req, back, "AWS round-trip failed:\n{serialized}");
 }
