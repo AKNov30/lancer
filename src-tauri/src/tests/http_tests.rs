@@ -250,3 +250,118 @@ async fn api_key_rejects_invalid_location() {
     .await;
     assert!(result.is_err());
 }
+
+#[tokio::test]
+async fn oauth2_cc_fetches_token_and_adds_bearer_header() {
+    use axum::{routing::post, Json, Router};
+    use std::net::SocketAddr;
+    use tokio::net::TcpListener;
+
+    async fn token_endpoint() -> Json<serde_json::Value> {
+        Json(serde_json::json!({
+            "access_token": "issued-by-mock-token-123",
+            "token_type": "Bearer",
+            "expires_in": 3600
+        }))
+    }
+
+    let app = Router::new().route("/oauth/token", post(token_endpoint));
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr: SocketAddr = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let state = AppState::default();
+    let req = HttpRequest::new("https://example.com/api");
+    let req = apply_auth(
+        req,
+        &Auth::OAuth2Cc {
+            token_url: format!("http://{addr}/oauth/token"),
+            client_id: "client-x".into(),
+            client_secret: "secret-y".into(),
+            scope: "read".into(),
+            audience: "".into(),
+        },
+        &state,
+    )
+    .await
+    .expect("apply_auth");
+
+    let auth_header = req
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("Authorization"))
+        .expect("Authorization header should be set");
+    assert_eq!(auth_header.1, "Bearer issued-by-mock-token-123");
+
+    server.abort();
+}
+
+#[tokio::test]
+async fn oauth2_cc_reuses_cached_token_until_expiry() {
+    use axum::{routing::post, Json, Router};
+    use std::net::SocketAddr;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use tokio::net::TcpListener;
+
+    let hits = Arc::new(AtomicUsize::new(0));
+    let hits_clone = hits.clone();
+
+    let app = Router::new().route(
+        "/oauth/token",
+        post(move || {
+            let hits = hits_clone.clone();
+            async move {
+                let n = hits.fetch_add(1, Ordering::SeqCst) + 1;
+                Json(serde_json::json!({
+                    "access_token": format!("token-{n}"),
+                    "expires_in": 3600
+                }))
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr: SocketAddr = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+
+    let state = AppState::default();
+    let auth_cfg = Auth::OAuth2Cc {
+        token_url: format!("http://{addr}/oauth/token"),
+        client_id: "c".into(),
+        client_secret: "s".into(),
+        scope: "read".into(),
+        audience: "".into(),
+    };
+
+    let req1 = apply_auth(HttpRequest::new("https://x.example"), &auth_cfg, &state)
+        .await
+        .unwrap();
+    let req2 = apply_auth(HttpRequest::new("https://y.example"), &auth_cfg, &state)
+        .await
+        .unwrap();
+
+    let t1 = &req1
+        .headers
+        .iter()
+        .find(|(k, _)| k == "Authorization")
+        .unwrap()
+        .1;
+    let t2 = &req2
+        .headers
+        .iter()
+        .find(|(k, _)| k == "Authorization")
+        .unwrap()
+        .1;
+    assert_eq!(t1, t2, "expected cached reuse");
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        1,
+        "token endpoint hit more than once"
+    );
+
+    server.abort();
+}
