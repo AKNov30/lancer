@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { readRequest } from "@/lib/tauri";
-import type { Method } from "@/lib/types";
+import type { Auth, Method } from "@/lib/types";
 import { useRequest } from "@/stores/request-store";
 import { useWorkspace } from "@/stores/workspace-store";
 
@@ -38,6 +38,7 @@ export function Sidebar() {
 
   const setUrl = useRequest((s) => s.setUrl);
   const setMethod = useRequest((s) => s.setMethod);
+  const setAuth = useRequest((s) => s.setAuth);
 
   // Refresh on mount and whenever the root path changes.
   useEffect(() => {
@@ -88,6 +89,7 @@ export function Sidebar() {
                       const req = await readRequest(it.path);
                       setUrl(req.url);
                       if (isMethod(req.method)) setMethod(req.method);
+                      setAuth((req.auth ?? { kind: "none" }) as Auth);
                     } catch (e) {
                       console.error("read_request failed", e);
                     }
