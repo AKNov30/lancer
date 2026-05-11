@@ -175,6 +175,17 @@ pub fn parse(input: &str) -> Result<Request, BruError> {
         _ => None,
     };
 
+    let pre_request_script = blocks
+        .map
+        .get("script:pre-request")
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let post_response_script = blocks
+        .map
+        .get("script:post-response")
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
     Ok(Request {
         name,
         seq,
@@ -185,6 +196,8 @@ pub fn parse(input: &str) -> Result<Request, BruError> {
         body,
         auth,
         vars,
+        pre_request_script,
+        post_response_script,
     })
 }
 
@@ -340,7 +353,19 @@ pub fn serialize(req: &Request) -> String {
     if !req.vars.is_empty() {
         out.push_str("vars:pre-request {\n");
         write_kv_list(&mut out, &req.vars);
-        out.push_str("}\n");
+        out.push_str("}\n\n");
+    }
+
+    if let Some(s) = &req.pre_request_script {
+        out.push_str("script:pre-request {\n");
+        out.push_str(s.trim());
+        out.push_str("\n}\n\n");
+    }
+
+    if let Some(s) = &req.post_response_script {
+        out.push_str("script:post-response {\n");
+        out.push_str(s.trim());
+        out.push_str("\n}\n");
     }
 
     out

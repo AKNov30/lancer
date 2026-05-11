@@ -1,5 +1,5 @@
 use crate::collection::bru;
-use crate::collection::schema::{Auth, KvEnabled};
+use crate::collection::schema::{Auth, KvEnabled, Request};
 use crate::http::types::Method;
 
 const FIXTURE: &str = include_str!("fixtures/simple.bru");
@@ -249,4 +249,24 @@ fn parse_unknown_auth_returns_err() {
         "meta {\n  name: x\n  type: http\n}\n\nget {\n  url: https://x\n  auth: martian\n}\n";
     let result = bru::parse(input);
     assert!(matches!(result, Err(bru::BruError::UnknownAuth(_))));
+}
+
+#[test]
+fn round_trip_preserves_scripts() {
+    let req = Request {
+        name: "X".into(),
+        seq: Some(1),
+        method: Method::Get,
+        url: "https://x".into(),
+        headers: vec![],
+        params: vec![],
+        body: None,
+        auth: Some(Auth::None),
+        vars: vec![],
+        pre_request_script: Some("pm.environment.set('t', Date.now())".into()),
+        post_response_script: Some("pm.test('200', () => pm.response.to.have.status(200))".into()),
+    };
+    let serialized = bru::serialize(&req);
+    let back = bru::parse(&serialized).unwrap();
+    assert_eq!(req, back, "script round-trip failed:\n{serialized}");
 }

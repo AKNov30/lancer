@@ -19,6 +19,10 @@ pub struct Request {
     pub auth: Option<Auth>,
     #[serde(default)]
     pub vars: Vec<KvEnabled>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_request_script: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post_response_script: Option<String>,
 }
 
 /// A key-value pair with an enabled toggle. Disabled rows are kept on disk
@@ -148,6 +152,8 @@ mod tests {
                 value: "https://api.example.com".into(),
                 enabled: true,
             }],
+            pre_request_script: None,
+            post_response_script: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("\"method\":\"GET\""), "got: {json}");

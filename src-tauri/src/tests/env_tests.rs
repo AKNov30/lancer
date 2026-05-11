@@ -172,6 +172,8 @@ fn substitute_request_walks_url_headers_params() {
         body: None,
         auth: None,
         vars: vec![],
+        pre_request_script: None,
+        post_response_script: None,
     };
     substitute_request(&mut req, &c);
     assert_eq!(req.url, "https://api.example.com/users");
@@ -238,6 +240,8 @@ fn materialize_json_body_parses_after_substitution() {
         }),
         auth: None,
         vars: vec![],
+        pre_request_script: None,
+        post_response_script: None,
     };
     let http = materialize(&req).unwrap();
     assert_eq!(http.url, "https://x");
@@ -265,6 +269,8 @@ fn materialize_json_returns_err_on_invalid_after_substitution() {
         }),
         auth: None,
         vars: vec![],
+        pre_request_script: None,
+        post_response_script: None,
     };
     let result = materialize(&req);
     assert!(result.is_err(), "expected JSON parse error from injection");
@@ -297,6 +303,8 @@ fn materialize_drops_disabled_headers_and_params() {
         body: None,
         auth: None,
         vars: vec![],
+        pre_request_script: None,
+        post_response_script: None,
     };
     let http = materialize(&req).unwrap();
     assert_eq!(http.headers.len(), 1);

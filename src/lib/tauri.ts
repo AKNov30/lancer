@@ -102,3 +102,33 @@ export const deleteSecret = (
   envName: string,
   varName: string,
 ): Promise<void> => invoke<void>("delete_secret", { workspaceRoot, envName, varName });
+
+// ─── Postman importer ────────────────────────────────────────────────────────
+
+export interface PostmanImportReport {
+  created: string[];
+  skippedExisting: string[];
+  warnings: string[];
+  errors: string[];
+}
+
+export const importPostman = (
+  collectionPath: string,
+  destRoot: string,
+): Promise<PostmanImportReport> =>
+  invoke<PostmanImportReport>("import_postman", { collectionPath, destRoot });
+
+export const importPostmanEnv = (envPath: string, workspaceRoot: string): Promise<string> =>
+  invoke<string>("import_postman_env", { envPath, workspaceRoot });
+
+// ─── OpenAPI importer ─────────────────────────────────────────────────────────
+
+export interface OpenApiImportReport {
+  createdFiles: string[];
+  skippedExisting: string[];
+  errors: string[];
+  envCreated: string | null;
+}
+
+export const importOpenapi = (specPath: string, destRoot: string): Promise<OpenApiImportReport> =>
+  invoke<OpenApiImportReport>("import_openapi", { specPath, destRoot });

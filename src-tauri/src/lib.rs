@@ -2,6 +2,7 @@ pub mod collection;
 pub mod commands;
 pub mod env;
 pub mod http;
+pub mod importers;
 pub mod state;
 
 #[cfg(test)]
@@ -24,6 +25,9 @@ pub fn run() {
             commands::envs::get_secret,
             commands::envs::set_secret,
             commands::envs::delete_secret,
+            commands::importers::import_openapi,
+            commands::importers::import_postman,
+            commands::importers::import_postman_env,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
