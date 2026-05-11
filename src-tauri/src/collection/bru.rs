@@ -309,6 +309,9 @@ pub fn serialize(req: &Request) -> String {
         Some(Auth::Bearer { .. }) => "bearer",
         Some(Auth::Basic { .. }) => "basic",
         Some(Auth::ApiKey { .. }) => "apikey",
+        // M5.2 will add .bru serialisation for these variants
+        Some(Auth::OAuth2Cc { .. }) => "oauth2",
+        Some(Auth::AwsSigV4 { .. }) => "awsv4",
     };
     out.push_str(&format!("  auth: {auth_marker}\n"));
     out.push_str("}\n\n");
@@ -349,6 +352,8 @@ pub fn serialize(req: &Request) -> String {
             out.push_str("}\n\n");
         }
         Some(Auth::None) | None => {}
+        // M5.2 will add .bru serialisation for these variants
+        Some(Auth::OAuth2Cc { .. }) | Some(Auth::AwsSigV4 { .. }) => {}
     }
 
     match &req.body {

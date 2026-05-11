@@ -78,7 +78,32 @@ pub enum Auth {
         key: String,
         value: String,
         #[serde(rename = "in")]
-        location: String, // "header" or "query"
+        location: String,
+    },
+    /// OAuth 2 Client Credentials grant. The runtime fetches a token from
+    /// `token_url` and caches it until expiry. `audience` is optional in spec
+    /// but represented as a (possibly empty) string for serde stability.
+    OAuth2Cc {
+        #[serde(rename = "tokenUrl")]
+        token_url: String,
+        #[serde(rename = "clientId")]
+        client_id: String,
+        #[serde(rename = "clientSecret")]
+        client_secret: String,
+        scope: String,
+        audience: String,
+    },
+    /// AWS Signature V4. `session_token` is required when using temporary STS
+    /// credentials, absent otherwise — modelled as `Option<String>`.
+    AwsSigV4 {
+        #[serde(rename = "accessKeyId")]
+        access_key_id: String,
+        #[serde(rename = "secretAccessKey")]
+        secret_access_key: String,
+        #[serde(rename = "sessionToken", skip_serializing_if = "Option::is_none")]
+        session_token: Option<String>,
+        region: String,
+        service: String,
     },
 }
 
@@ -162,5 +187,53 @@ mod tests {
         let json = serde_json::to_string(&b).unwrap();
         let back: RequestBody = serde_json::from_str(&json).unwrap();
         assert_eq!(b, back);
+    }
+
+    #[test]
+    fn auth_oauth2_cc_serializes_with_camel_case_fields() {
+        let a = Auth::OAuth2Cc {
+            token_url: "https://auth.example.com/oauth/token".into(),
+            client_id: "abc".into(),
+            client_secret: "shh".into(),
+            scope: "read:users write:users".into(),
+            audience: "https://api.example.com".into(),
+        };
+        let json = serde_json::to_string(&a).unwrap();
+        assert!(json.contains("\"kind\":\"oAuth2Cc\""), "got: {json}");
+        assert!(json.contains("\"tokenUrl\""), "got: {json}");
+        assert!(json.contains("\"clientId\""), "got: {json}");
+        let back: Auth = serde_json::from_str(&json).unwrap();
+        assert_eq!(a, back);
+    }
+
+    #[test]
+    fn auth_aws_sigv4_serializes_with_camel_case_fields() {
+        let a = Auth::AwsSigV4 {
+            access_key_id: "AKIA…".into(),
+            secret_access_key: "secret".into(),
+            session_token: Some("temp".into()),
+            region: "us-east-1".into(),
+            service: "execute-api".into(),
+        };
+        let json = serde_json::to_string(&a).unwrap();
+        assert!(json.contains("\"kind\":\"awsSigV4\""), "got: {json}");
+        assert!(json.contains("\"accessKeyId\""), "got: {json}");
+        assert!(json.contains("\"sessionToken\":\"temp\""), "got: {json}");
+        let back: Auth = serde_json::from_str(&json).unwrap();
+        assert_eq!(a, back);
+    }
+
+    #[test]
+    fn auth_aws_sigv4_session_token_optional() {
+        let a = Auth::AwsSigV4 {
+            access_key_id: "AKIA…".into(),
+            secret_access_key: "secret".into(),
+            session_token: None,
+            region: "us-east-1".into(),
+            service: "execute-api".into(),
+        };
+        let json = serde_json::to_string(&a).unwrap();
+        let back: Auth = serde_json::from_str(&json).unwrap();
+        assert_eq!(a, back);
     }
 }
