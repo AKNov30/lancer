@@ -143,3 +143,110 @@ async fn send_with_headers_passes_through() {
 fn send_request_command_function_exists() {
     let _ = crate::commands::http::send_request;
 }
+
+// ── apply_auth tests ─────────────────────────────────────────────────────────
+
+use crate::collection::schema::Auth;
+use crate::http::auth::apply_auth;
+use crate::state::AppState;
+
+#[tokio::test]
+async fn bearer_auth_adds_authorization_header() {
+    let state = AppState::default();
+    let req = HttpRequest::new("https://httpbin.org/headers");
+    let req = apply_auth(
+        req,
+        &Auth::Bearer {
+            token: "test-token".into(),
+        },
+        &state,
+    )
+    .await
+    .unwrap();
+    let auth_header = req
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("Authorization"));
+    assert_eq!(
+        auth_header.map(|(_, v)| v.as_str()),
+        Some("Bearer test-token")
+    );
+}
+
+#[tokio::test]
+async fn basic_auth_encodes_username_password() {
+    let state = AppState::default();
+    let req = HttpRequest::new("https://httpbin.org/basic-auth/alice/secret");
+    let req = apply_auth(
+        req,
+        &Auth::Basic {
+            username: "alice".into(),
+            password: "secret".into(),
+        },
+        &state,
+    )
+    .await
+    .unwrap();
+    let auth = req
+        .headers
+        .iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("Authorization"))
+        .unwrap();
+    // base64("alice:secret") = YWxpY2U6c2VjcmV0
+    assert_eq!(auth.1, "Basic YWxpY2U6c2VjcmV0");
+}
+
+#[tokio::test]
+async fn api_key_in_header_appended() {
+    let state = AppState::default();
+    let req = HttpRequest::new("https://httpbin.org/get");
+    let req = apply_auth(
+        req,
+        &Auth::ApiKey {
+            key: "X-Api-Key".into(),
+            value: "abc123".into(),
+            location: "header".into(),
+        },
+        &state,
+    )
+    .await
+    .unwrap();
+    let h = req.headers.iter().find(|(k, _)| k == "X-Api-Key").unwrap();
+    assert_eq!(h.1, "abc123");
+}
+
+#[tokio::test]
+async fn api_key_in_query_appended() {
+    let state = AppState::default();
+    let req = HttpRequest::new("https://httpbin.org/get");
+    let req = apply_auth(
+        req,
+        &Auth::ApiKey {
+            key: "api_key".into(),
+            value: "abc123".into(),
+            location: "query".into(),
+        },
+        &state,
+    )
+    .await
+    .unwrap();
+    let q = req.query.iter().find(|(k, _)| k == "api_key").unwrap();
+    assert_eq!(q.1, "abc123");
+}
+
+#[tokio::test]
+async fn api_key_rejects_invalid_location() {
+    let state = AppState::default();
+    let req = HttpRequest::new("https://example.com");
+    let result = apply_auth(
+        req,
+        &Auth::ApiKey {
+            key: "k".into(),
+            value: "v".into(),
+            location: "body".into(),
+        },
+        &state,
+    )
+    .await;
+    assert!(result.is_err());
+}

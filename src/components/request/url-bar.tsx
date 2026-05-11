@@ -6,6 +6,7 @@ import { MethodSelect } from "./method-select";
 
 export function UrlBar() {
   const request = useRequest((s) => s.request);
+  const auth = useRequest((s) => s.auth);
   const loading = useRequest((s) => s.loading);
   const setUrl = useRequest((s) => s.setUrl);
   const setMethod = useRequest((s) => s.setMethod);
@@ -18,7 +19,7 @@ export function UrlBar() {
     setError(null);
     setLoading(true);
     try {
-      const resp = await sendRequest(request);
+      const resp = await sendRequest(request, auth);
       setResponse(resp);
     } catch (e) {
       setError(String(e));

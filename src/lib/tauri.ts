@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { HttpRequest, HttpResponse, Method } from "@/lib/types";
+import type { Auth, HttpRequest, HttpResponse, Method } from "@/lib/types";
 
-export async function sendRequest(req: HttpRequest): Promise<HttpResponse> {
-  return invoke<HttpResponse>("send_request", { req });
+export async function sendRequest(req: HttpRequest, auth?: Auth | null): Promise<HttpResponse> {
+  return invoke<HttpResponse>("send_request", { req, auth: auth ?? null });
 }
 
 export interface KvEnabled {

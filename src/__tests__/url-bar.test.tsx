@@ -58,6 +58,7 @@ describe("UrlBar", () => {
     expect(vi.mocked(sendRequest)).toHaveBeenCalledOnce();
     expect(vi.mocked(sendRequest)).toHaveBeenCalledWith(
       expect.objectContaining({ url: "https://httpbin.org/get", method: "GET" }),
+      expect.objectContaining({ kind: "none" }),
     );
   });
 

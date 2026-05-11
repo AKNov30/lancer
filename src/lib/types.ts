@@ -23,3 +23,25 @@ export interface HttpResponse {
   elapsedMs: number;
   sizeBytes: number;
 }
+
+export type Auth =
+  | { kind: "none" }
+  | { kind: "bearer"; token: string }
+  | { kind: "basic"; username: string; password: string }
+  | { kind: "apiKey"; key: string; value: string; in: string }
+  | {
+      kind: "oAuth2Cc";
+      tokenUrl: string;
+      clientId: string;
+      clientSecret: string;
+      scope: string;
+      audience: string;
+    }
+  | {
+      kind: "awsSigV4";
+      accessKeyId: string;
+      secretAccessKey: string;
+      sessionToken?: string | null;
+      region: string;
+      service: string;
+    };
