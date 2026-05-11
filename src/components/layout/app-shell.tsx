@@ -3,6 +3,7 @@ import { AuthPanel } from "@/components/request/auth-panel";
 import { EnvSwitcher } from "@/components/request/env-switcher";
 import { UrlBar } from "@/components/request/url-bar";
 import { ResponseViewer } from "@/components/response/response-viewer";
+import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Sidebar } from "./sidebar";
 
@@ -16,6 +17,7 @@ export function AppShell() {
       <ResizablePanel defaultSize={40} minSize={30}>
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-end gap-2 border-border border-b bg-card px-3 py-1">
+            <SettingsSheet />
             <EnvSwitcher />
           </div>
           <UrlBar />
