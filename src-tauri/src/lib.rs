@@ -1,5 +1,6 @@
 pub mod collection;
 pub mod commands;
+pub mod env;
 pub mod http;
 pub mod state;
 
@@ -16,6 +17,13 @@ pub fn run() {
             commands::workspace::list_workspace,
             commands::workspace::read_request,
             commands::workspace::write_request,
+            commands::envs::list_envs,
+            commands::envs::read_env,
+            commands::envs::write_env,
+            commands::envs::delete_env,
+            commands::envs::get_secret,
+            commands::envs::set_secret,
+            commands::envs::delete_secret,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
