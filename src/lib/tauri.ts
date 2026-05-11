@@ -132,3 +132,19 @@ export interface OpenApiImportReport {
 
 export const importOpenapi = (specPath: string, destRoot: string): Promise<OpenApiImportReport> =>
   invoke<OpenApiImportReport>("import_openapi", { specPath, destRoot });
+
+// ─── Mock server ──────────────────────────────────────────────────────────────
+
+export interface MockStatus {
+  running: boolean;
+  port: number | null;
+  specPath: string | null;
+  error: string | null;
+}
+
+export const mockStart = (specPath: string, port: number): Promise<MockStatus> =>
+  invoke<MockStatus>("mock_start", { specPath, port });
+
+export const mockStop = (): Promise<MockStatus> => invoke<MockStatus>("mock_stop");
+
+export const mockStatus = (): Promise<MockStatus> => invoke<MockStatus>("mock_status");

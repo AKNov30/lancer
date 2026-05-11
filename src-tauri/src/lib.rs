@@ -3,6 +3,7 @@ pub mod commands;
 pub mod env;
 pub mod http;
 pub mod importers;
+pub mod mock;
 pub mod state;
 
 #[cfg(test)]
@@ -28,6 +29,9 @@ pub fn run() {
             commands::importers::import_openapi,
             commands::importers::import_postman,
             commands::importers::import_postman_env,
+            commands::mock::mock_start,
+            commands::mock::mock_stop,
+            commands::mock::mock_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

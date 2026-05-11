@@ -2035,6 +2035,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "chrono",
+ "http 1.4.0",
  "keyring",
  "nom",
  "openapiv3",
@@ -2049,6 +2050,8 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "tower",
+ "tower-http",
  "walkdir",
 ]
 

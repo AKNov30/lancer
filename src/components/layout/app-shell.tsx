@@ -1,3 +1,4 @@
+import { MockPanel } from "@/components/mock/mock-panel";
 import { AuthPanel } from "@/components/request/auth-panel";
 import { EnvSwitcher } from "@/components/request/env-switcher";
 import { UrlBar } from "@/components/request/url-bar";
@@ -26,7 +27,10 @@ export function AppShell() {
       </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel defaultSize={40} minSize={30}>
-        <ResponseViewer />
+        <div className="flex h-full flex-col">
+          <ResponseViewer />
+          <MockPanel />
+        </div>
       </ResizablePanel>
     </ResizablePanelGroup>
   );
