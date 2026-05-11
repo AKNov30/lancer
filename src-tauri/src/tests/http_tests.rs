@@ -503,3 +503,83 @@ fn oauth2_cache_key_includes_client_secret() {
         "different client_secret must produce different keys"
     );
 }
+
+// ── M6.3.1: wire-form substitution tests ─────────────────────────────────────
+
+#[test]
+fn substitute_http_request_walks_wire_form() {
+    use crate::env::substitute::{substitute_http_request, Ctx};
+    use crate::http::types::HttpRequest;
+
+    let mut ctx = Ctx::default();
+    ctx.vars
+        .insert("base".into(), "https://api.example.com".into());
+    ctx.vars.insert("tok".into(), "abc-token".into());
+
+    let mut req = HttpRequest::new("{{base}}/users");
+    req.headers
+        .push(("Authorization".into(), "Bearer {{tok}}".into()));
+    req.query.push(("v".into(), "{{ver}}".into())); // unknown — stays
+
+    substitute_http_request(&mut req, &ctx);
+
+    assert_eq!(req.url, "https://api.example.com/users");
+    assert_eq!(req.headers[0].1, "Bearer abc-token");
+    assert_eq!(req.query[0].1, "{{ver}}");
+}
+
+#[test]
+fn substitute_json_body_walks_string_leaves() {
+    use crate::env::substitute::{substitute_http_request, Ctx};
+    use crate::http::types::{HttpRequest, RequestBody};
+
+    let mut ctx = Ctx::default();
+    ctx.vars.insert("name".into(), "alice".into());
+    ctx.vars.insert("port".into(), "8080".into());
+
+    let mut req = HttpRequest::new("https://x");
+    req.body = Some(RequestBody::Json {
+        value: serde_json::json!({
+            "user": "{{name}}",
+            "config": {
+                "host": "localhost",
+                "port_text": "{{port}}",
+                "tags": ["{{name}}-tag", "static"]
+            }
+        }),
+    });
+    substitute_http_request(&mut req, &ctx);
+    let body = match &req.body {
+        Some(RequestBody::Json { value }) => value,
+        _ => panic!("expected json"),
+    };
+    assert_eq!(body["user"], serde_json::json!("alice"));
+    assert_eq!(body["config"]["port_text"], serde_json::json!("8080"));
+    assert_eq!(body["config"]["tags"][0], serde_json::json!("alice-tag"));
+    assert_eq!(body["config"]["tags"][1], serde_json::json!("static"));
+}
+
+#[tokio::test]
+async fn load_ctx_from_disk_reads_vars() {
+    use crate::env::schema::Environment;
+    use crate::env::substitute::load_ctx_from_disk;
+
+    let dir = tempfile::tempdir().unwrap();
+    let env = Environment {
+        name: "dev".into(),
+        vars: vec![
+            ("baseUrl".into(), "https://api.example.com".into()),
+            ("apiVersion".into(), "v1".into()),
+        ],
+        secret_names: vec![], // no secrets — keyring not needed
+    };
+    crate::env::io::write_env(dir.path(), &env).unwrap();
+
+    let ctx = load_ctx_from_disk(dir.path(), "dev").unwrap();
+    assert_eq!(
+        ctx.vars.get("baseUrl"),
+        Some(&"https://api.example.com".to_string())
+    );
+    assert_eq!(ctx.vars.get("apiVersion"), Some(&"v1".to_string()));
+    assert!(ctx.secrets.is_empty());
+}
