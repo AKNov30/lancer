@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use tokio::sync::{Mutex, RwLock};
 
+use crate::history::store::HistoryDb;
 use crate::mock::server::MockHandle;
 
 /// In-memory cache for OAuth 2 Client Credentials tokens. Keyed by
@@ -48,6 +49,8 @@ pub struct AppState {
     pub mock: Arc<Mutex<Option<MockHandle>>>,
     /// Last error from the mock server background task.
     pub mock_error: Arc<Mutex<Option<String>>>,
+    /// On-disk SQLite request history (capped at 500 entries).
+    pub history: HistoryDb,
 }
 
 impl Default for AppState {
@@ -60,11 +63,18 @@ impl Default for AppState {
             .redirect(reqwest::redirect::Policy::limited(10))
             .build()
             .expect("failed to build reqwest Client");
+        let history_path = dirs::home_dir()
+            .unwrap_or_default()
+            .join(".lancer")
+            .join("history.sqlite");
+        let history =
+            HistoryDb::open(history_path).unwrap_or_else(|_| HistoryDb::open_in_memory().unwrap());
         Self {
             oauth2_cache: OAuth2Cache::default(),
             http_client,
             mock: Arc::new(Mutex::new(None)),
             mock_error: Arc::new(Mutex::new(None)),
+            history,
         }
     }
 }

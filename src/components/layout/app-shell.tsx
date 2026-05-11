@@ -1,3 +1,4 @@
+import { HistorySheet } from "@/components/history/history-sheet";
 import { MockPanel } from "@/components/mock/mock-panel";
 import { AuthPanel } from "@/components/request/auth-panel";
 import { EnvSwitcher } from "@/components/request/env-switcher";
@@ -17,6 +18,7 @@ export function AppShell() {
       <ResizablePanel defaultSize={40} minSize={30}>
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-end gap-2 border-border border-b bg-card px-3 py-1">
+            <HistorySheet />
             <SettingsSheet />
             <EnvSwitcher />
           </div>

@@ -16,6 +16,10 @@ pub async fn send_request(
     env_name: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<HttpResponse, String> {
+    // Capture original URL and method before substitution for history recording.
+    let original_url = req.url.clone();
+    let original_method = format!("{:?}", req.method);
+
     // 1. Build env Ctx if env selected, then substitute.
     if let (Some(root), Some(name)) = (workspace_root.as_ref(), env_name.as_ref()) {
         let ctx = load_ctx_from_disk(root, name).map_err(|e| e.to_string())?;
@@ -34,7 +38,20 @@ pub async fn send_request(
     };
 
     // 3. Send.
-    client::send(&state.inner().http_client, req)
+    let response = client::send(&state.inner().http_client, req)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // 4. Record to history (best-effort — never fail the request on history errors).
+    let _ = state.inner().history.record(
+        &original_url,
+        &original_method,
+        response.status,
+        response.elapsed_ms,
+        response.size_bytes,
+        &response.headers,
+        response.body_text.as_deref(),
+    );
+
+    Ok(response)
 }

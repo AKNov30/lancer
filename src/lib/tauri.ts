@@ -148,3 +148,41 @@ export const mockStart = (specPath: string, port: number): Promise<MockStatus> =
 export const mockStop = (): Promise<MockStatus> => invoke<MockStatus>("mock_stop");
 
 export const mockStatus = (): Promise<MockStatus> => invoke<MockStatus>("mock_status");
+
+// ─── History ──────────────────────────────────────────────────────────────────
+
+export interface HistoryEntry {
+  id: number;
+  timestamp: number;
+  url: string;
+  method: string;
+  status: number;
+  elapsedMs: number;
+  sizeBytes: number;
+  headersJson: string;
+  bodyTextPreview: string | null;
+}
+
+export const historyList = (limit?: number): Promise<HistoryEntry[]> =>
+  invoke<HistoryEntry[]>("history_list", { limit: limit ?? 100 });
+
+export const historyClear = (): Promise<void> => invoke<void>("history_clear");
+
+// ─── cURL import / export ────────────────────────────────────────────────────
+
+export const parseCurl = (input: string): Promise<HttpRequest> =>
+  invoke<HttpRequest>("parse_curl", { input });
+
+export const exportCurl = (req: HttpRequest): Promise<string> =>
+  invoke<string>("export_curl", { req });
+
+export const exportFetch = (req: HttpRequest): Promise<string> =>
+  invoke<string>("export_fetch", { req });
+
+export const exportAxios = (req: HttpRequest): Promise<string> =>
+  invoke<string>("export_axios", { req });
+
+export const exportPython = (req: HttpRequest): Promise<string> =>
+  invoke<string>("export_python", { req });
+
+export const exportGo = (req: HttpRequest): Promise<string> => invoke<string>("export_go", { req });

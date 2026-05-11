@@ -1,6 +1,7 @@
 pub mod collection;
 pub mod commands;
 pub mod env;
+pub mod history;
 pub mod http;
 pub mod importers;
 pub mod mock;
@@ -33,6 +34,14 @@ pub fn run() {
             commands::mock::mock_start,
             commands::mock::mock_stop,
             commands::mock::mock_status,
+            commands::history::history_list,
+            commands::history::history_clear,
+            commands::curl::parse_curl,
+            commands::curl::export_curl,
+            commands::curl::export_fetch,
+            commands::curl::export_axios,
+            commands::curl::export_python,
+            commands::curl::export_go,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

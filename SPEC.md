@@ -43,6 +43,8 @@ Lancer is a Tauri 2 desktop app that:
 
 ## 5. Scope
 
+> **Update 2026-05-11:** Test runner and sidebar drag-and-drop moved from Phase 1 to deferred — see "Phase 1 deferred" subsection. All other §5 items implemented or in active milestones.
+
 ### In scope (Phase 1 — Free MVP)
 
 - REST: GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS
@@ -53,13 +55,18 @@ Lancer is a Tauri 2 desktop app that:
 - Variables: `{{var}}` substitution
 - Response viewer: pretty JSON / raw / preview / headers / cookies / timing
 - Collections persisted as `.bru` files in user-chosen folder
-- Sidebar tree with drag-and-drop reordering
 - Postman v2.1 collection + environment importer (target: 95 %+ of real-world collections parseable)
 - OpenAPI 3 importer → instant collection skeleton
 - Local mock server from OpenAPI spec (port chosen by user, regenerable)
-- Test runner: `pre-request` and `post-response` JS hooks in sandboxed QuickJS
 - History (last 500 requests, on-disk SQLite — local cache only)
 - `cURL` paste → request, request → cURL / fetch / axios / Go / Python copy
+
+### Phase 1 deferred (will ship before v1.0)
+
+These were listed as in-scope in §5 but moved to a deferred queue during execution. They land in a v1.0.x patch release or roll into Pro tier:
+
+- **Test runner** (rquickjs JS sandbox for pre/post-response hooks) — deferred to **Phase 2 Pro tier** (natural pairing with the CLI runner already planned there)
+- **Sidebar drag-and-drop reordering** — deferred to **v1.0.x polish patch**
 
 ### Out of scope (forever, by design)
 
@@ -76,6 +83,7 @@ Lancer is a Tauri 2 desktop app that:
 - GraphQL subscriptions
 - AI helpers (BYOK): generate test from response, generate mock data from schema, explain non-2xx, fix broken assertion
 - Contract testing: detect schema drift between two OpenAPI snapshots
+- **Test runner**: `pre-request` and `post-response` JS hooks in sandboxed QuickJS (moved from Phase 1 — natural pairing with CLI runner)
 - CLI runner (`lancer run`) with JUnit output for CI
 - Multi-tab + split view
 - Custom themes
