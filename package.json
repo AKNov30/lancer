@@ -18,7 +18,9 @@
     "check": "pnpm lint && pnpm typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "release": "git-cliff -o CHANGELOG.md",
+    "release:bump": "powershell ./scripts/bump-version.ps1"
   },
   "dependencies": {
     "@fontsource/instrument-serif": "^5.2.8",
