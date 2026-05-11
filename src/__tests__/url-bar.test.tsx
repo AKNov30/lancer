@@ -4,9 +4,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UrlBar } from "@/components/request/url-bar";
 import { useRequest } from "@/stores/request-store";
 
-vi.mock("@/lib/tauri", () => ({
-  sendRequest: vi.fn(),
-}));
+vi.mock("@/lib/tauri", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/tauri")>();
+  return {
+    ...actual,
+    sendRequest: vi.fn(),
+    exportCurl: vi.fn().mockResolvedValue("curl -X GET 'https://example.com'"),
+    exportFetch: vi.fn().mockResolvedValue("await fetch('https://example.com', {});"),
+    exportAxios: vi.fn().mockResolvedValue("await axios({});"),
+    exportPython: vi
+      .fn()
+      .mockResolvedValue("import requests\n\nresp = requests.get('https://example.com')"),
+    exportGo: vi.fn().mockResolvedValue("package main\n\nfunc main() {}"),
+  };
+});
 
 import { sendRequest } from "@/lib/tauri";
 

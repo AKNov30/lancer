@@ -64,6 +64,11 @@ pub enum RequestBody {
         query: String,
         variables: String,
     },
+    Binary {
+        path: String,
+        #[serde(rename = "contentType")]
+        content_type: String,
+    },
 }
 
 /// Authentication strategies as expressed in `.bru` auth:* blocks.

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,6 +29,11 @@ export function ResponseViewer() {
   const loading = useRequest((s) => s.loading);
 
   const formattedBody = useMemo(() => prettyBody(response?.bodyText), [response?.bodyText]);
+
+  const cookies = useMemo(() => {
+    if (!response) return [];
+    return response.headers.filter(([k]) => k.toLowerCase() === "set-cookie").map(([, v]) => v);
+  }, [response]);
 
   if (loading) {
     return (
@@ -76,6 +82,14 @@ export function ResponseViewer() {
         <TabsList className="h-9 rounded-none border-border border-b bg-card px-2">
           <TabsTrigger value="body">Body</TabsTrigger>
           <TabsTrigger value="headers">Headers</TabsTrigger>
+          <TabsTrigger value="cookies">
+            Cookies
+            {cookies.length > 0 && (
+              <Badge variant="secondary" className="ml-1 px-1 py-px text-[10px] leading-none">
+                {cookies.length}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="body" className="flex-1">
           <ScrollArea className="h-full">
@@ -94,6 +108,32 @@ export function ResponseViewer() {
                 ))}
               </tbody>
             </table>
+          </ScrollArea>
+        </TabsContent>
+        <TabsContent value="cookies" className="flex-1">
+          <ScrollArea className="h-full">
+            {cookies.length === 0 ? (
+              <p className="p-3 text-muted-foreground text-xs">
+                No Set-Cookie headers in this response.
+              </p>
+            ) : (
+              <table className="w-full font-mono text-xs">
+                <thead>
+                  <tr className="border-border border-b text-muted-foreground">
+                    <th className="px-3 py-1 text-left font-medium">#</th>
+                    <th className="px-3 py-1 text-left font-medium">Set-Cookie value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cookies.map((v, idx) => (
+                    <tr key={v} className="border-border border-b">
+                      <td className="px-3 py-1 align-top text-muted-foreground">{idx + 1}</td>
+                      <td className="break-all px-3 py-1">{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </ScrollArea>
         </TabsContent>
       </Tabs>

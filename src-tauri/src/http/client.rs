@@ -1,4 +1,5 @@
 use crate::http::types::{HttpRequest, HttpResponse, Method, RequestBody};
+use std::io::Read as _;
 use std::time::Instant;
 use thiserror::Error;
 
@@ -8,6 +9,8 @@ pub enum HttpError {
     Network(#[from] reqwest::Error),
     #[error("invalid header value: {0}")]
     InvalidHeader(String),
+    #[error("binary body io error: {0}")]
+    BinaryIo(String),
 }
 
 impl serde::Serialize for HttpError {
@@ -46,6 +49,16 @@ pub async fn send(client: &reqwest::Client, req: HttpRequest) -> Result<HttpResp
             .header("content-type", content_type.as_str())
             .body(value),
         Some(RequestBody::Form { fields }) => builder.form(&fields),
+        Some(RequestBody::Binary { path, content_type }) => {
+            let mut file =
+                std::fs::File::open(&path).map_err(|e| HttpError::BinaryIo(e.to_string()))?;
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes)
+                .map_err(|e| HttpError::BinaryIo(e.to_string()))?;
+            builder
+                .header("content-type", content_type.as_str())
+                .body(bytes)
+        }
         Some(RequestBody::None) | None => builder,
     };
 

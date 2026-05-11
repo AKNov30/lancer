@@ -51,6 +51,11 @@ pub enum RequestBody {
     Form {
         fields: Vec<(String, String)>,
     },
+    Binary {
+        path: std::path::PathBuf,
+        #[serde(rename = "contentType")]
+        content_type: String,
+    },
     None,
 }
 

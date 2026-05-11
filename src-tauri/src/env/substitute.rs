@@ -79,6 +79,10 @@ pub fn substitute_request(req: &mut Request, ctx: &Ctx) {
                 *query = substitute(query, ctx);
                 *variables = substitute(variables, ctx);
             }
+            RequestBody::Binary { path, content_type } => {
+                *path = substitute(path, ctx);
+                *content_type = substitute(content_type, ctx);
+            }
         }
     }
 }
@@ -124,6 +128,13 @@ pub fn substitute_http_request(req: &mut WireRequest, ctx: &Ctx) {
             // text appears only in string leaves. Walk the tree and
             // substitute strings only.
             WireBody::Json { value } => substitute_json_value(value, ctx),
+            WireBody::Binary { path, content_type } => {
+                // Substitute the path string (stored as PathBuf — round-trip via lossy str).
+                let path_str = path.to_string_lossy().into_owned();
+                let new_path = substitute(&path_str, ctx);
+                *path = std::path::PathBuf::from(new_path);
+                *content_type = substitute(content_type, ctx);
+            }
             WireBody::None => {}
         }
     }

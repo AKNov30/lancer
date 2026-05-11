@@ -172,6 +172,21 @@ pub fn parse(input: &str) -> Result<Request, BruError> {
                 variables,
             })
         }
+        Some("binary") => {
+            let kv = blocks
+                .map
+                .get("body:binary")
+                .map(|s| lexer::parse_kv_block(s))
+                .transpose()?
+                .unwrap_or_default();
+            Some(RequestBody::Binary {
+                path: kv.get("path").cloned().unwrap_or_default(),
+                content_type: kv
+                    .get("content_type")
+                    .cloned()
+                    .unwrap_or_else(|| "application/octet-stream".into()),
+            })
+        }
         _ => None,
     };
 
@@ -231,6 +246,7 @@ pub fn serialize(req: &Request) -> String {
         Some(RequestBody::FormUrlencoded { .. }) => "form-urlencoded",
         Some(RequestBody::MultipartForm { .. }) => "multipart-form",
         Some(RequestBody::GraphQl { .. }) => "graphql",
+        Some(RequestBody::Binary { .. }) => "binary",
         None => "none",
     };
     out.push_str(&format!("  body: {body_marker}\n"));
@@ -346,6 +362,12 @@ pub fn serialize(req: &Request) -> String {
                 out.push_str(variables.trim());
                 out.push_str("\n}\n\n");
             }
+        }
+        Some(RequestBody::Binary { path, content_type }) => {
+            out.push_str("body:binary {\n");
+            out.push_str(&format!("  path: {path}\n"));
+            out.push_str(&format!("  content_type: {content_type}\n"));
+            out.push_str("}\n\n");
         }
         None => {}
     }

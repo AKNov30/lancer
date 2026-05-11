@@ -156,6 +156,15 @@ fn sign_aws(
                 acc
             })
             .into_bytes(),
+        Some(crate::http::types::RequestBody::Binary { path, .. }) => {
+            use std::io::Read as _;
+            let mut file = std::fs::File::open(path)
+                .map_err(|e| AuthError::AwsSigV4(format!("binary body open: {e}")))?;
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes)
+                .map_err(|e| AuthError::AwsSigV4(format!("binary body read: {e}")))?;
+            bytes
+        }
     };
 
     let headers_ref: Vec<(&str, &str)> = req

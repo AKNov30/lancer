@@ -57,6 +57,10 @@ pub fn materialize(req: &SchemaRequest) -> Result<HttpRequest, MaterializeError>
                     .collect();
                 Ok(WireBody::Form { fields: kept })
             }
+            SchemaBody::Binary { path, content_type } => Ok(WireBody::Binary {
+                path: std::path::PathBuf::from(path),
+                content_type: content_type.clone(),
+            }),
             // Multipart and GraphQL not yet supported on the wire — fall back to None.
             SchemaBody::MultipartForm { .. } | SchemaBody::GraphQl { .. } => Ok(WireBody::None),
         })

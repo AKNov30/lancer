@@ -4,6 +4,7 @@ import { sendRequest } from "@/lib/tauri";
 import { useEnv } from "@/stores/env-store";
 import { useRequest } from "@/stores/request-store";
 import { useWorkspace } from "@/stores/workspace-store";
+import { CopyAsMenu } from "./copy-as-menu";
 import { MethodSelect } from "./method-select";
 
 export function UrlBar() {
@@ -51,6 +52,7 @@ export function UrlBar() {
       <Button onClick={onSend} disabled={loading || !request.url}>
         {loading ? "Sending…" : "Send"}
       </Button>
+      <CopyAsMenu request={request} />
     </div>
   );
 }

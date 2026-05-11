@@ -4,6 +4,7 @@ export type RequestBody =
   | { kind: "json"; value: unknown }
   | { kind: "text"; value: string; contentType: string }
   | { kind: "form"; fields: [string, string][] }
+  | { kind: "binary"; path: string; contentType: string }
   | { kind: "none" };
 
 export interface HttpRequest {

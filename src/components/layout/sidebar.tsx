@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { CurlImportDialog } from "@/components/importers/curl-dialog";
 import { OpenApiImportDialog } from "@/components/importers/openapi-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -66,6 +67,7 @@ export function Sidebar() {
           {rootPath}
         </span>
         <div className="flex items-center gap-1">
+          <CurlImportDialog />
           <OpenApiImportDialog />
           <Button variant="ghost" size="sm" onClick={() => void openFolder()}>
             Change
