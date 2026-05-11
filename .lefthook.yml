@@ -23,4 +23,5 @@ pre-push:
   commands:
     test-rust:
       glob: "src-tauri/**/*.rs"
-      run: PATH="$HOME/.cargo/bin:$PATH" cargo test --manifest-path src-tauri/Cargo.toml
+      # Sequential to avoid parallel saturation of external HTTP test endpoints (httpbin)
+      run: PATH="$HOME/.cargo/bin:$PATH" cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1
