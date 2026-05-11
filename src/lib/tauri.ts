@@ -18,11 +18,9 @@ export type CollectionRequestBody =
   | { kind: "multipartForm"; fields: KvEnabled[] }
   | { kind: "graphQl"; query: string; variables: string };
 
-export type CollectionAuth =
-  | { kind: "none" }
-  | { kind: "bearer"; token: string }
-  | { kind: "basic"; username: string; password: string }
-  | { kind: "apiKey"; key: string; value: string; in: string };
+// CollectionAuth is the same domain as Auth (in src/lib/types.ts).
+// Aliased so a single source of truth covers both stored .bru files and in-flight requests.
+export type CollectionAuth = Auth;
 
 export interface CollectionRequest {
   name: string;
