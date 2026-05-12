@@ -6,18 +6,38 @@ import { Sidebar } from "./sidebar";
 import { StatusBar } from "./status-bar";
 import { TopBar } from "./top-bar";
 
+/**
+ * Inline overflow style is critical: without it, content inside a ResizablePanel
+ * can force the panel wider than its allotted size — which is the bug that made
+ * the sidebar look squeezed (the editor's wide content was eating the sidebar's
+ * percentage allocation).
+ */
+const PANEL_STYLE: React.CSSProperties = { overflow: "hidden" };
+
 export function AppShell() {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <TopBar />
 
       <div className="min-h-0 min-w-0 flex-1">
-        <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
-          <ResizablePanel defaultSize={20} minSize={16} maxSize={35}>
+        <ResizablePanelGroup
+          orientation="horizontal"
+          autoSave="lancer.layout.main"
+          className="h-full w-full"
+        >
+          <ResizablePanel
+            id="sidebar"
+            defaultSize={22}
+            minSize={16}
+            maxSize={40}
+            style={PANEL_STYLE}
+          >
             <Sidebar />
           </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel defaultSize={45} minSize={30}>
+
+          <ResizableHandle withHandle />
+
+          <ResizablePanel id="editor" defaultSize={45} minSize={30} style={PANEL_STYLE}>
             <div className="flex h-full min-w-0 flex-col">
               <UrlBar />
               <AuthPanel />
@@ -32,8 +52,10 @@ export function AppShell() {
               </div>
             </div>
           </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel defaultSize={35} minSize={25}>
+
+          <ResizableHandle withHandle />
+
+          <ResizablePanel id="response" defaultSize={33} minSize={20} style={PANEL_STYLE}>
             <ResponseViewer />
           </ResizablePanel>
         </ResizablePanelGroup>

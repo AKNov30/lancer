@@ -4,6 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lancer</title>
+    <!-- Pre-mount theme apply (no FOUC) — reads localStorage + system preference before React boots -->
+    <script>
+      (() => {
+        const stored = localStorage.getItem("lancer.theme");
+        const t = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+        const root = document.documentElement;
+        try {
+          const systemLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+          const resolved = t === "system" ? (systemLight ? "light" : "dark") : t;
+          root.classList.toggle("dark", resolved === "dark");
+          root.classList.toggle("light", resolved === "light");
+          root.style.colorScheme = resolved;
+        } catch {
+          /* matchMedia unavailable — leave default dark class from <html> */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

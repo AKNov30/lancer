@@ -1,4 +1,4 @@
-import { SettingsIcon } from "lucide-react";
+import { MonitorIcon, MoonIcon, SettingsIcon, SunIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,11 +12,20 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { isTelemetryEnabled, setTelemetryEnabled } from "@/lib/telemetry";
+import { type Theme, useTheme } from "@/stores/theme-store";
 import { SettingsUpdate } from "./settings-update";
+
+const THEME_OPTIONS: Array<{ value: Theme; label: string; icon: typeof SunIcon }> = [
+  { value: "light", label: "Light", icon: SunIcon },
+  { value: "dark", label: "Dark", icon: MoonIcon },
+  { value: "system", label: "System", icon: MonitorIcon },
+];
 
 export function SettingsSheet() {
   const [enabled, setEnabled] = useState(isTelemetryEnabled());
   const [restartHint, setRestartHint] = useState(false);
+  const theme = useTheme((s) => s.theme);
+  const setTheme = useTheme((s) => s.setTheme);
 
   function toggleTelemetry() {
     const next = !enabled;
@@ -45,9 +54,36 @@ export function SettingsSheet() {
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          {/* Appearance */}
+          <section>
+            <h3 className="mb-2 font-semibold text-sm">Appearance</h3>
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs">Theme</Label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+                  <Button
+                    key={value}
+                    variant={theme === value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTheme(value)}
+                    className="gap-1.5"
+                  >
+                    <Icon className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                System follows your OS preference automatically.
+              </p>
+            </div>
+          </section>
+
+          <Separator />
+
           {/* Updates */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Updates</h3>
+            <h3 className="mb-2 font-semibold text-sm">Updates</h3>
             <SettingsUpdate />
           </section>
 
