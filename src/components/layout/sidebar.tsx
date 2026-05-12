@@ -49,30 +49,35 @@ export function Sidebar() {
 
   if (!rootPath) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-        <h2 className="font-display text-2xl italic">Open a folder.</h2>
-        <p className="max-w-[28ch] text-muted-foreground text-xs">
-          Lancer reads <code className="font-mono">.bru</code> files from any folder. Sync via your
-          Git.
+      <div className="flex h-full min-w-0 flex-col items-center justify-center gap-3 p-4 text-center">
+        <div className="font-display text-xl italic text-muted-foreground">Open a folder</div>
+        <p className="max-w-[24ch] text-muted-foreground/80 text-xs leading-relaxed">
+          Your <code className="font-mono text-foreground">.bru</code> files live anywhere on disk.
+          Sync via Git.
         </p>
-        <Button onClick={() => void openFolder()}>Open Folder</Button>
+        <Button size="sm" onClick={() => void openFolder()}>
+          Open folder
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-2 border-border border-b px-3 py-2">
-        <span className="truncate font-mono text-muted-foreground text-xs" title={rootPath}>
-          {rootPath}
-        </span>
-        <div className="flex items-center gap-1">
+    <div className="flex h-full min-w-0 flex-col">
+      <div className="flex shrink-0 items-center justify-between gap-1 border-border border-b px-2 py-1.5">
+        <div className="flex items-center gap-0.5">
           <CurlImportDialog />
           <OpenApiImportDialog />
-          <Button variant="ghost" size="sm" onClick={() => void openFolder()}>
-            Change
-          </Button>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={() => void openFolder()}
+          title={`Change workspace folder (currently: ${rootPath})`}
+        >
+          Change
+        </Button>
       </div>
       <ScrollArea className="flex-1">
         {loading && <div className="p-3 text-muted-foreground text-xs">Loading…</div>}

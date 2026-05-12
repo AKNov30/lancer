@@ -11,3 +11,8 @@ src-tauri/gen/
 
 # Stray dev logs from manual `tauri dev > out 2> err` redirections
 /tauri-dev-*.txt
+
+# Stale TS compilation artifacts (TS is build-only via Vite/SWC; tsc is --noEmit)
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map

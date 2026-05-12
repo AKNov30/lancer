@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRequest } from "@/stores/request-store";
@@ -37,19 +36,22 @@ export function ResponseViewer() {
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2">
-        <span className="font-mono text-muted-foreground text-sm">Sending…</span>
+      <div className="flex h-full min-w-0 flex-col items-center justify-center gap-3 p-4">
+        <div className="flex items-center gap-2">
+          <span className="size-2 animate-pulse rounded-full bg-[color:var(--color-primary)]" />
+          <span className="font-mono text-muted-foreground text-sm">Sending…</span>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="m-4">
+      <div className="min-w-0 p-3">
         <Alert variant="destructive">
           <AlertTitle>Request failed</AlertTitle>
           <AlertDescription>
-            <pre className="whitespace-pre-wrap font-mono text-xs">{error}</pre>
+            <pre className="whitespace-pre-wrap break-all font-mono text-xs">{error}</pre>
           </AlertDescription>
         </Alert>
       </div>
@@ -58,11 +60,11 @@ export function ResponseViewer() {
 
   if (!response) {
     return (
-      <div className="flex h-full items-center justify-center p-6">
-        <Card className="max-w-sm p-6 text-center">
-          <h2 className="mb-2 font-display text-2xl italic">No response yet.</h2>
-          <p className="text-muted-foreground text-xs">Send a request to see the result here.</p>
-        </Card>
+      <div className="flex h-full min-w-0 flex-col items-center justify-center gap-2 p-4 text-center">
+        <div className="font-display text-xl italic text-muted-foreground">No response yet</div>
+        <p className="max-w-[28ch] text-muted-foreground/80 text-xs leading-relaxed">
+          Send a request to see the result here.
+        </p>
       </div>
     );
   }
