@@ -1,3 +1,4 @@
+import { FolderPlusIcon } from "lucide-react";
 import { useEffect } from "react";
 import { CurlImportDialog } from "@/components/importers/curl-dialog";
 import { OpenApiImportDialog } from "@/components/importers/openapi-dialog";
@@ -50,12 +51,21 @@ export function Sidebar() {
   if (!rootPath) {
     return (
       <div className="flex h-full min-w-0 flex-col items-center justify-center gap-3 p-4 text-center">
+        <FolderPlusIcon
+          className="size-8 text-muted-foreground/30"
+          strokeWidth={1.25}
+          aria-hidden="true"
+        />
         <div className="font-display text-xl italic text-muted-foreground">Open a folder</div>
         <p className="max-w-[24ch] text-muted-foreground/80 text-xs leading-relaxed">
           Your <code className="font-mono text-foreground">.bru</code> files live anywhere on disk.
           Sync via Git.
         </p>
-        <Button size="sm" onClick={() => void openFolder()}>
+        <Button
+          size="sm"
+          onClick={() => void openFolder()}
+          className="active:scale-[0.98] transition-transform"
+        >
           Open folder
         </Button>
       </div>
@@ -94,7 +104,7 @@ export function Sidebar() {
               <li key={it.path}>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-2 py-1 text-left hover:bg-accent"
+                  className="flex w-full items-center gap-2 px-2 py-1 text-left transition-colors duration-150 hover:bg-accent focus-visible:bg-accent"
                   onClick={async () => {
                     try {
                       const req = await readRequest(it.path);

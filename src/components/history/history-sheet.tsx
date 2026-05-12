@@ -1,3 +1,4 @@
+import { ClockIcon } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,8 +50,14 @@ export function HistorySheet() {
   return (
     <Sheet onOpenChange={(open) => open && load()}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-          History
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          aria-label="Request history"
+          title="Request history"
+        >
+          <ClockIcon className="size-4" strokeWidth={1.75} aria-hidden="true" />
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="flex w-[520px] flex-col gap-0 p-0 sm:max-w-[520px]">
@@ -123,7 +130,7 @@ export function HistorySheet() {
                       {entry.url}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 pl-14 text-muted-foreground text-xs">
+                  <div className="flex items-center gap-3 pl-14 text-muted-foreground text-xs tabular-nums">
                     <span>{formatTime(entry.timestamp)}</span>
                     <span>{entry.elapsedMs} ms</span>
                     <span>{formatBytes(entry.sizeBytes)}</span>

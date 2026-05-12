@@ -1,3 +1,4 @@
+import { InboxIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,12 @@ function statusColor(code: number): string {
   if (code >= 300) return "var(--color-info)";
   if (code >= 200) return "var(--color-success)";
   return "var(--color-muted-foreground)";
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function prettyBody(text?: string): string {
@@ -60,7 +67,12 @@ export function ResponseViewer() {
 
   if (!response) {
     return (
-      <div className="flex h-full min-w-0 flex-col items-center justify-center gap-2 p-4 text-center">
+      <div className="flex h-full min-w-0 flex-col items-center justify-center gap-3 p-4 text-center">
+        <InboxIcon
+          className="size-8 text-muted-foreground/30"
+          strokeWidth={1.25}
+          aria-hidden="true"
+        />
         <div className="font-display text-xl italic text-muted-foreground">No response yet</div>
         <p className="max-w-[28ch] text-muted-foreground/80 text-xs leading-relaxed">
           Send a request to see the result here.
@@ -70,15 +82,19 @@ export function ResponseViewer() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-border border-b bg-card px-3 py-2 font-mono text-xs">
+    <div className="flex h-full min-w-0 flex-col">
+      <div className="flex shrink-0 items-center gap-3 border-border border-b bg-card px-3 py-2 font-mono text-xs tabular-nums">
         <span style={{ color: statusColor(response.status) }} className="font-semibold">
           {response.status} {response.statusText}
         </span>
-        <span className="text-muted-foreground">·</span>
-        <span>{response.elapsedMs} ms</span>
-        <span className="text-muted-foreground">·</span>
-        <span>{response.sizeBytes} B</span>
+        <span className="text-muted-foreground/50">·</span>
+        <span className="text-muted-foreground" title="Round-trip time">
+          {response.elapsedMs} ms
+        </span>
+        <span className="text-muted-foreground/50">·</span>
+        <span className="text-muted-foreground" title="Response body size">
+          {formatBytes(response.sizeBytes)}
+        </span>
       </div>
       <Tabs defaultValue="body" className="flex flex-1 flex-col">
         <TabsList className="h-9 rounded-none border-border border-b bg-card px-2">

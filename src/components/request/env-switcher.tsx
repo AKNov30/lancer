@@ -1,3 +1,4 @@
+import { LayersIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +58,12 @@ export function EnvSwitcher() {
         value={activeEnv ?? NO_ENV}
         onValueChange={(v) => setActiveEnv(v === NO_ENV ? null : v, rootPath)}
       >
-        <SelectTrigger className="w-[140px] text-xs">
+        <SelectTrigger className="h-7 w-[150px] gap-1.5 text-xs" aria-label="Switch environment">
+          <LayersIcon
+            className="size-3.5 shrink-0 text-muted-foreground"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <SelectValue placeholder="No env" />
         </SelectTrigger>
         <SelectContent>

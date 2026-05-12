@@ -1,3 +1,4 @@
+import { SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -27,8 +28,14 @@ export function SettingsSheet() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-          Settings
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          aria-label="Settings"
+          title="Settings"
+        >
+          <SettingsIcon className="size-4" strokeWidth={1.75} aria-hidden="true" />
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="w-[480px] sm:max-w-[480px]">

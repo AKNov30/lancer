@@ -28,9 +28,16 @@ export function MethodSelect({ value, onChange }: Props) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as Method)}>
       <SelectTrigger
-        className="w-[110px] font-mono font-semibold tracking-wider"
+        className="w-[120px] gap-2 font-mono font-semibold tracking-wider"
         style={{ color: COLOR[value] }}
+        aria-label={`HTTP method, currently ${value}`}
       >
+        {/* Color dot before the value for fast scanning */}
+        <span
+          aria-hidden="true"
+          className="size-1.5 shrink-0 rounded-full"
+          style={{ backgroundColor: COLOR[value] }}
+        />
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -41,7 +48,14 @@ export function MethodSelect({ value, onChange }: Props) {
             className="font-mono font-semibold tracking-wider"
             style={{ color: COLOR[m] }}
           >
-            {m}
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: COLOR[m] }}
+              />
+              {m}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>

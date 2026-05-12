@@ -40,16 +40,19 @@ export function AuthPanel() {
     <Tabs
       value={auth.kind}
       onValueChange={(v) => setAuth(EMPTY[v as AuthKind])}
-      className="flex flex-col border-border border-b bg-card"
+      className="flex shrink-0 flex-col border-border border-b bg-card"
     >
-      <TabsList className="h-9 w-full justify-start rounded-none px-2">
-        <TabsTrigger value="none">None</TabsTrigger>
-        <TabsTrigger value="bearer">Bearer</TabsTrigger>
-        <TabsTrigger value="basic">Basic</TabsTrigger>
-        <TabsTrigger value="apiKey">API Key</TabsTrigger>
-        <TabsTrigger value="oAuth2Cc">OAuth 2</TabsTrigger>
-        <TabsTrigger value="awsSigV4">AWS</TabsTrigger>
-      </TabsList>
+      {/* TabsList scrolls horizontally on narrow editor pane — avoid wrap */}
+      <div className="overflow-x-auto">
+        <TabsList className="h-9 w-max min-w-full justify-start rounded-none px-2">
+          <TabsTrigger value="none">None</TabsTrigger>
+          <TabsTrigger value="bearer">Bearer</TabsTrigger>
+          <TabsTrigger value="basic">Basic</TabsTrigger>
+          <TabsTrigger value="apiKey">API Key</TabsTrigger>
+          <TabsTrigger value="oAuth2Cc">OAuth 2</TabsTrigger>
+          <TabsTrigger value="awsSigV4">AWS</TabsTrigger>
+        </TabsList>
+      </div>
       <TabsContent value="none" className="p-3 text-muted-foreground text-xs">
         No authentication will be applied.
       </TabsContent>

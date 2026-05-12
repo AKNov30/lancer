@@ -7,18 +7,18 @@ export function StatusBar() {
   const loading = useRequest((s) => s.loading);
 
   return (
-    <footer className="flex h-6 shrink-0 items-center justify-between gap-3 border-border border-t bg-card px-3 font-mono text-[10px] text-muted-foreground">
+    <footer className="flex h-6 shrink-0 items-center justify-between gap-3 border-border border-t bg-card px-3 font-mono text-[10px] text-muted-foreground tabular-nums">
       <div className="flex min-w-0 items-center gap-3">
         <MockPanel />
       </div>
       <div className="flex shrink-0 items-center gap-3">
         {loading && (
-          <span className="flex items-center gap-1 text-[color:var(--color-primary)]">
+          <span className="flex items-center gap-1.5 text-[color:var(--color-primary)]">
             <span className="size-1.5 animate-pulse rounded-full bg-[color:var(--color-primary)]" />
-            Sending…
+            <span>Sending…</span>
           </span>
         )}
-        <span>v{APP_VERSION}</span>
+        <span title={`Lancer version ${APP_VERSION}`}>v{APP_VERSION}</span>
       </div>
     </footer>
   );
