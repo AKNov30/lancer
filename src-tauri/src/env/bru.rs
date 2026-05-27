@@ -43,8 +43,26 @@ pub fn parse(name: &str, input: &str) -> Result<Environment, EnvBruError> {
         };
         i += 1; // consume opener
 
+        // Scan to the closer, but ignore closers inside a `"…"` string literal
+        // (with `\` escapes) so a var value containing `}`/`]` isn't truncated.
         let body_start = i;
-        while i < bytes.len() && bytes[i] != closer {
+        let mut in_string = false;
+        let mut escaped = false;
+        while i < bytes.len() {
+            let b = bytes[i];
+            if in_string {
+                if escaped {
+                    escaped = false;
+                } else if b == b'\\' {
+                    escaped = true;
+                } else if b == b'"' {
+                    in_string = false;
+                }
+            } else if b == b'"' {
+                in_string = true;
+            } else if b == closer {
+                break;
+            }
             i += 1;
         }
         if i >= bytes.len() {

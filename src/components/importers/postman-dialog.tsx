@@ -21,6 +21,9 @@ interface PostmanDialogProps {
   onImported?: () => void;
   /** Optional trigger element; defaults to a "Import Postman" button. */
   children?: React.ReactNode;
+  /** Controlled open state — when provided, no internal trigger is rendered */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 type Phase = "idle" | "importing" | "done" | "error";
@@ -31,8 +34,20 @@ interface ReportState {
   error: string | null;
 }
 
-export function PostmanDialog({ workspaceRoot, onImported, children }: PostmanDialogProps) {
-  const [open_, setOpen] = React.useState(false);
+export function PostmanDialog({
+  workspaceRoot,
+  onImported,
+  children,
+  open: controlledOpen,
+  onOpenChange,
+}: PostmanDialogProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open_ = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) onOpenChange?.(v);
+    else setInternalOpen(v);
+  };
   const [collectionPath, setCollectionPath] = React.useState("");
   const [envPath, setEnvPath] = React.useState("");
   const [phase, setPhase] = React.useState<Phase>("idle");
@@ -99,9 +114,15 @@ export function PostmanDialog({ workspaceRoot, onImported, children }: PostmanDi
         if (!v) reset();
       }}
     >
-      <DialogTrigger asChild>
-        {children ?? <Button variant="outline">Import Postman</Button>}
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {children ?? (
+            <Button variant="ghost" size="sm" className="h-7 cursor-pointer gap-1.5 px-2 text-xs">
+              Postman
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -205,11 +226,12 @@ interface SummaryRowProps {
 
 function ImportSummaryRow({ label, items, variant }: SummaryRowProps) {
   if (items.length === 0) return null;
+  // Use semantic colour tokens so dark mode and theme swap work correctly.
   const colorClass =
     variant === "success"
-      ? "text-green-600 dark:text-green-400"
+      ? "text-[color:var(--color-success)]"
       : variant === "warning"
-        ? "text-yellow-600 dark:text-yellow-400"
+        ? "text-[color:var(--color-warning)]"
         : variant === "error"
           ? "text-destructive"
           : "text-muted-foreground";

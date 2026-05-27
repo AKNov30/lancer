@@ -3,11 +3,28 @@
 > **Send requests fast.** A free, local-first API client.
 
 [![CI](https://github.com/USERNAME/lancer/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/lancer/actions/workflows/ci.yml)
-[![License: FSL-1.1](https://img.shields.io/badge/license-FSL--1.1-blue.svg)](#license)
+[![License: FSL-1.1 → MIT](https://img.shields.io/badge/license-FSL--1.1%20→%20MIT-blue.svg)](#license)
+[![No accounts. Ever.](https://img.shields.io/badge/accounts-never-success.svg)](#our-promises)
+[![No telemetry by default](https://img.shields.io/badge/telemetry-opt--in--only-success.svg)](#our-promises)
+
+## Our promises
+
+These are not features. These are commitments we will not break:
+
+- 🛡️ **No accounts. Ever.** You will never be asked to sign in to use any part of Lancer. There is no backend to sign in to.
+- 🛡️ **No telemetry by default.** Crash reports are opt-in only and redact every sensitive header before sending.
+- 🛡️ **No cloud sync.** Your collections never leave your machine. Sync with Git, like code.
+- 🛡️ **Plain files forever.** Collections are human-readable `.bru` text files you can `git diff`. We will never migrate to an opaque format.
+- 🛡️ **Free core, auto-MIT.** The free tier source is published under FSL-1.1 and **automatically becomes MIT 2 years after each release**. If Lancer disappears or gets acquired, the code is yours.
+- 🛡️ **BYOK for AI.** Any AI helper will use your own API key talking directly to your chosen provider. Lancer will never proxy AI traffic.
+
+If we ever break one of these, we expect you to fork. The license is designed to make that a guaranteed fallback, not a threat.
+
+---
 
 Lancer is a desktop API client built on Tauri 2 (Rust core, native windowing). It:
 
-- Weighs **5 MB** — not 250 MB like Electron-based tools
+- Weighs **~15 MB** — not 250 MB like Electron-based tools
 - Stays **local** — no login, no telemetry, no cloud sync forced
 - Stores collections as **plain `.bru` files** in a folder you choose
 - Imports from **Postman v2.1** and **OpenAPI 3** in one click

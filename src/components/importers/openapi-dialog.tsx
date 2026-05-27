@@ -1,4 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
+import { FileJsonIcon, FolderOpenIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,21 +10,43 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { importOpenapi, type OpenApiImportReport } from "@/lib/tauri";
 import { useWorkspace } from "@/stores/workspace-store";
 
-export function OpenApiImportDialog() {
+interface OpenApiImportDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function OpenApiImportDialog({
+  open: controlledOpen,
+  onOpenChange,
+}: OpenApiImportDialogProps = {}) {
   const rootPath = useWorkspace((s) => s.rootPath);
   const refresh = useWorkspace((s) => s.refresh);
 
-  const [open_, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open_ = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) onOpenChange?.(v);
+    else setInternalOpen(v);
+  };
   const [specPath, setSpecPath] = useState<string | null>(null);
   const [destRoot, setDestRoot] = useState<string | null>(rootPath);
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<OpenApiImportReport | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  // Update destRoot when workspace changes.
   const effectiveDestRoot = destRoot ?? rootPath ?? "";
 
   async function pickSpecFile() {
@@ -74,7 +97,6 @@ export function OpenApiImportDialog() {
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (!next) {
-      // Reset state when closing.
       setSpecPath(null);
       setDestRoot(rootPath);
       setReport(null);
@@ -87,26 +109,38 @@ export function OpenApiImportDialog() {
 
   return (
     <Dialog open={open_} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
-          Import OpenAPI
-        </Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-7 cursor-pointer gap-1.5 px-2 text-xs">
+            <FileJsonIcon className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
+            OpenAPI
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import OpenAPI Spec</DialogTitle>
+          <DialogTitle>Import OpenAPI spec</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 py-2">
+        <div className="flex flex-col gap-4 py-2">
           {/* Spec file picker */}
-          <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground text-xs">OpenAPI file (.yaml / .json)</span>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">OpenAPI file (.yaml / .json)</Label>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => void pickSpecFile()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void pickSpecFile()}
+                className="cursor-pointer gap-1.5"
+              >
+                <FolderOpenIcon className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
                 Pick file…
               </Button>
               {specPath && (
-                <span className="min-w-0 truncate font-mono text-xs" title={specPath}>
+                <span
+                  className="min-w-0 truncate font-mono text-muted-foreground text-xs"
+                  title={specPath}
+                >
                   {specPath.split(/[/\\]/).pop()}
                 </span>
               )}
@@ -114,14 +148,23 @@ export function OpenApiImportDialog() {
           </div>
 
           {/* Destination folder picker */}
-          <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground text-xs">Destination folder</span>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Destination folder</Label>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => void pickDestFolder()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void pickDestFolder()}
+                className="cursor-pointer gap-1.5"
+              >
+                <FolderOpenIcon className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
                 Pick folder…
               </Button>
               {effectiveDestRoot && (
-                <span className="min-w-0 truncate font-mono text-xs" title={effectiveDestRoot}>
+                <span
+                  className="min-w-0 truncate font-mono text-muted-foreground text-xs"
+                  title={effectiveDestRoot}
+                >
                   {effectiveDestRoot}
                 </span>
               )}
@@ -130,9 +173,10 @@ export function OpenApiImportDialog() {
 
           {/* Error */}
           {importError && (
-            <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-xs">
-              {importError}
-            </p>
+            <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
+              <span className="font-medium text-destructive">Import failed:</span>
+              <span className="break-all font-mono text-muted-foreground">{importError}</span>
+            </div>
           )}
 
           {/* Report */}
@@ -144,52 +188,78 @@ export function OpenApiImportDialog() {
                   <span className="font-mono">{report.envCreated.split(/[/\\]/).pop()}</span>
                 </p>
               )}
-              <div className="rounded border">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-3 py-1.5 text-left font-medium">File</th>
-                      <th className="px-3 py-1.5 text-left font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <div className="rounded-md border">
+                <Table className="text-xs">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="h-8 text-muted-foreground text-[10px] tracking-wider uppercase">
+                        File
+                      </TableHead>
+                      <TableHead className="h-8 w-24 text-muted-foreground text-[10px] tracking-wider uppercase">
+                        Status
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {report.createdFiles.map((f) => (
-                      <tr key={f} className="border-b last:border-0">
-                        <td className="px-3 py-1 font-mono">{f}</td>
-                        <td className="px-3 py-1 text-green-600">created</td>
-                      </tr>
+                      <TableRow key={f}>
+                        <TableCell className="font-mono px-3 py-1">{f}</TableCell>
+                        <TableCell
+                          className="px-3 py-1 font-medium"
+                          style={{ color: "var(--color-success)" }}
+                        >
+                          created
+                        </TableCell>
+                      </TableRow>
                     ))}
                     {report.skippedExisting.map((f) => (
-                      <tr key={f} className="border-b last:border-0">
-                        <td className="px-3 py-1 font-mono">{f}</td>
-                        <td className="px-3 py-1 text-muted-foreground">skipped</td>
-                      </tr>
+                      <TableRow key={f}>
+                        <TableCell className="font-mono px-3 py-1">{f}</TableCell>
+                        <TableCell className="px-3 py-1 text-muted-foreground">skipped</TableCell>
+                      </TableRow>
                     ))}
                     {report.errors.map((e) => (
-                      <tr key={e} className="border-b last:border-0">
-                        <td className="px-3 py-1 font-mono text-destructive" colSpan={2}>
+                      <TableRow key={e}>
+                        <TableCell
+                          colSpan={2}
+                          className="break-all px-3 py-1 font-mono text-destructive"
+                        >
                           {e}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
                     {report.createdFiles.length === 0 &&
                       report.skippedExisting.length === 0 &&
                       report.errors.length === 0 && (
-                        <tr>
-                          <td colSpan={2} className="px-3 py-1 text-center text-muted-foreground">
+                        <TableRow>
+                          <TableCell
+                            colSpan={2}
+                            className="px-3 py-2 text-center text-muted-foreground"
+                          >
                             No operations found.
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button onClick={() => void runImport()} disabled={!canImport}>
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            className="cursor-pointer"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => void runImport()}
+            disabled={!canImport}
+            className="cursor-pointer disabled:cursor-not-allowed"
+          >
             {running ? "Importing…" : "Import"}
           </Button>
         </DialogFooter>

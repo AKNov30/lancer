@@ -1,7 +1,14 @@
+pub mod cookies;
 pub mod curl;
 pub mod envs;
+pub mod exporters;
+pub mod fs;
+pub mod grpc;
 pub mod history;
 pub mod http;
 pub mod importers;
 pub mod mock;
+pub mod settings;
+pub mod stream;
+pub mod watcher;
 pub mod workspace;

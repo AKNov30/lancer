@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
-import { listWorkspace, type WorkspaceItem } from "@/lib/tauri";
+import { listWorkspace, startWatching, stopWatching, type WorkspaceItem } from "@/lib/tauri";
+import { useWorkspaces } from "@/stores/workspaces-store";
 
 interface WorkspaceState {
   rootPath: string | null;
@@ -27,8 +28,16 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   setRootPath: (rootPath) => {
     if (rootPath) {
       window.localStorage.setItem(STORAGE_KEY, rootPath);
+      // Record into the recents registry so the WorkspaceSwitcher
+      // dropdown surfaces this path on the next open.
+      useWorkspaces.getState().add(rootPath);
+      // Best-effort: start the FS watcher so external edits auto-refresh
+      // the sidebar. Failure (e.g. on platforms without notify support) is
+      // non-fatal — user can still hit the refresh button.
+      void startWatching(rootPath).catch(() => {});
     } else {
       window.localStorage.removeItem(STORAGE_KEY);
+      void stopWatching().catch(() => {});
     }
     set({ rootPath });
   },

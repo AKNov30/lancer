@@ -1,4 +1,5 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { FolderOpenIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useMock } from "@/stores/mock-store";
 
 const DEFAULT_PORT = 8787;
@@ -68,48 +71,68 @@ export function MockConfigDialog({ open, onOpenChange }: MockConfigDialogProps) 
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Start Mock Server</DialogTitle>
+          <DialogTitle>Start mock server</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 py-2">
+        <div className="flex flex-col gap-4 py-2">
           {/* Spec file picker */}
-          <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground text-xs">OpenAPI spec (.yaml / .json)</span>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">OpenAPI spec (.yaml / .json)</Label>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => void pickSpecFile()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void pickSpecFile()}
+                className="cursor-pointer gap-1.5"
+              >
+                <FolderOpenIcon className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
                 Pick file…
               </Button>
               {specPath && (
-                <span className="min-w-0 truncate font-mono text-xs" title={specPath}>
+                <span
+                  className="min-w-0 truncate font-mono text-muted-foreground text-xs"
+                  title={specPath}
+                >
                   {specPath.split(/[/\\]/).pop()}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Port input */}
-          <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground text-xs">Port</span>
-            <input
+          {/* Port input — use shared Input primitive for consistent focus ring */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="mock-port" className="text-xs">
+              Port
+            </Label>
+            <Input
+              id="mock-port"
               type="number"
               min={1}
               max={65535}
               value={port}
               onChange={(e) => setPort(Number(e.target.value))}
-              className="h-8 w-28 rounded-md border bg-background px-3 text-sm ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-none"
+              className="w-32 nums-tabular font-mono text-xs"
             />
           </div>
 
           {/* Error */}
           {startError && (
-            <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive text-xs">
-              {startError}
-            </p>
+            <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
+              <span className="font-medium text-destructive">Failed:</span>
+              <span className="break-all font-mono text-muted-foreground">{startError}</span>
+            </div>
           )}
         </div>
 
         <DialogFooter>
-          <Button onClick={() => void handleStart()} disabled={!canStart}>
+          <Button variant="outline" onClick={handleClose} className="cursor-pointer">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => void handleStart()}
+            disabled={!canStart}
+            className="cursor-pointer disabled:cursor-not-allowed"
+          >
             {starting ? "Starting…" : "Start mock"}
           </Button>
         </DialogFooter>

@@ -51,14 +51,31 @@ pub(crate) fn split_blocks(input: &str) -> Result<Blocks, LexError> {
         // Skip the opening `{`.
         i += 1;
 
-        // Read body until the matching closing `}`.
+        // Read body until the matching closing `}`. Brace counting is
+        // string-aware: braces inside a `"…"` string literal (with `\` escapes)
+        // don't change depth, so a JSON body like `{"msg":"a}b"}` isn't
+        // truncated at the inner `}`.
         let body_start = i;
         let mut depth = 1usize;
+        let mut in_string = false;
+        let mut escaped = false;
         while i < len && depth > 0 {
-            match bytes[i] {
-                b'{' => depth += 1,
-                b'}' => depth -= 1,
-                _ => {}
+            let b = bytes[i];
+            if in_string {
+                if escaped {
+                    escaped = false;
+                } else if b == b'\\' {
+                    escaped = true;
+                } else if b == b'"' {
+                    in_string = false;
+                }
+            } else {
+                match b {
+                    b'"' => in_string = true,
+                    b'{' => depth += 1,
+                    b'}' => depth -= 1,
+                    _ => {}
+                }
             }
             if depth > 0 {
                 i += 1;

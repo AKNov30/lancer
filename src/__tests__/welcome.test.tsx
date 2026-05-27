@@ -21,7 +21,8 @@ describe("WelcomeDialog", () => {
   it("renders welcome content when open", () => {
     render(<WelcomeDialog />);
     expect(screen.getByRole("heading", { name: /welcome to lancer/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /open folder/i })).toBeInTheDocument();
+    // Primary action card is "New workspace" (others: "Open existing folder", "Import").
+    expect(screen.getByRole("button", { name: /new workspace/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /skip/i })).toBeInTheDocument();
   });
 

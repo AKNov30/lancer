@@ -27,6 +27,11 @@ fn http_response_serializes_to_json_with_camel_case() {
         body_text: Some(r#"{"ok":true}"#.to_string()),
         elapsed_ms: 124,
         size_bytes: 11,
+        ttfb_ms: 60,
+        download_ms: 64,
+        tests: Vec::new(),
+        script_logs: Vec::new(),
+        script_error: None,
     };
     let json = serde_json::to_string(&resp).unwrap();
     assert!(
@@ -62,7 +67,7 @@ fn request_body_json_round_trip() {
 async fn send_get_returns_2xx_for_httpbin() {
     let state = AppState::default();
     let req = HttpRequest::new("https://httpbin.org/get");
-    let resp = send(&state.http_client, req)
+    let resp = send(&state.http_client(), &state.cookie_jar, req)
         .await
         .expect("request should succeed");
     assert_eq!(
@@ -98,7 +103,7 @@ async fn send_post_with_json_body_echoes() {
     req.body = Some(RequestBody::Json {
         value: serde_json::json!({ "hello": "lancer", "n": 42 }),
     });
-    let resp = send(&state.http_client, req)
+    let resp = send(&state.http_client(), &state.cookie_jar, req)
         .await
         .expect("request should succeed");
     assert_eq!(resp.status, 200);
@@ -122,7 +127,7 @@ async fn send_with_query_params_appears_in_url() {
         ("foo".to_string(), "bar baz".to_string()),
         ("n".to_string(), "1".to_string()),
     ];
-    let resp = send(&state.http_client, req)
+    let resp = send(&state.http_client(), &state.cookie_jar, req)
         .await
         .expect("request should succeed");
     assert_eq!(resp.status, 200);
@@ -140,7 +145,7 @@ async fn send_with_headers_passes_through() {
     let state = AppState::default();
     let mut req = HttpRequest::new("https://httpbin.org/headers");
     req.headers = vec![("X-Lancer-Test".to_string(), "ok".to_string())];
-    let resp = send(&state.http_client, req)
+    let resp = send(&state.http_client(), &state.cookie_jar, req)
         .await
         .expect("request should succeed");
     assert_eq!(resp.status, 200);

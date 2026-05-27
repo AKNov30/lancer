@@ -105,9 +105,29 @@ pub fn import_spec(spec_path: &Path, dest_root: &Path) -> Result<ImportReport, I
         for (method, op) in ops {
             match convert::convert_operation(path_str, method, op, &spec) {
                 Ok(req) => {
-                    let filename = sanitize_filename(&req.name) + ".bru";
+                    let stem = sanitize_filename(&req.name);
+                    // SECURITY (defense-in-depth): `sanitize_filename` replaces
+                    // separators but not `.`/`..`, so a name like `..` could
+                    // produce a `..bru` write — or, combined with a malformed
+                    // name, escape `dest_root`. Reject any unsafe filename stem.
+                    if !crate::fsutil::is_safe_name(&stem) {
+                        report
+                            .errors
+                            .push(format!("{method} {path_str}: unsafe filename '{stem}'"));
+                        continue;
+                    }
+                    let filename = stem + ".bru";
                     let dest_path = dest_root.join(&filename);
                     let rel = filename.clone();
+
+                    // Canonicalized containment check: the resolved file must
+                    // stay under dest_root. Skip + record on a breach.
+                    if !is_within(dest_root, &dest_path) {
+                        report.errors.push(format!(
+                            "{method} {path_str}: resolved path escapes dest dir"
+                        ));
+                        continue;
+                    }
 
                     if dest_path.exists() {
                         report.skipped_existing.push(rel);
@@ -130,6 +150,18 @@ pub fn import_spec(spec_path: &Path, dest_root: &Path) -> Result<ImportReport, I
     }
 
     Ok(report)
+}
+
+/// True if `file` resolves to a location inside `base`. The file itself may not
+/// exist yet, so we canonicalize its parent directory (which does exist) and
+/// confirm it's still under the canonicalized `base`.
+fn is_within(base: &Path, file: &Path) -> bool {
+    let base_c = base.canonicalize().unwrap_or_else(|_| base.to_path_buf());
+    let parent = file.parent().unwrap_or(file);
+    let parent_c = parent
+        .canonicalize()
+        .unwrap_or_else(|_| parent.to_path_buf());
+    parent_c.starts_with(&base_c)
 }
 
 /// Convert an operation name/id into a safe filename fragment.

@@ -198,19 +198,36 @@ pub fn extract_scripts(
     (pre, post)
 }
 
-/// Recursively walk a folder tree, collecting `(folder_path, ItemOrFolder)` pairs
-/// where `ItemOrFolder` is a leaf request node.
+/// Recursively walk a folder tree, collecting `(folder_path, ItemOrFolder)`
+/// pairs for every *leaf* node — i.e. anything that is not a folder.
+///
+/// A node is treated as a FOLDER (recursed into) only when it has child
+/// `item`s. Everything else is a leaf and is emitted, including malformed
+/// nodes that carry neither a `request` nor any children. Surfacing those
+/// leaves lets the caller emit a "skipped …" warning instead of silently
+/// losing them (which is what happened when an empty node was mistaken for a
+/// folder and recursion produced nothing).
+///
+/// Recursion is unbounded in depth, so deeply nested folders are walked in
+/// full.
 pub fn walk_items<'a>(
     items: &'a [ItemOrFolder],
     folder_path: &str,
     out: &mut Vec<(String, &'a ItemOrFolder)>,
 ) {
     for item in items {
-        if item.request.is_some() {
-            // It's a leaf request
+        // A folder is any node that has children. A node with children is
+        // never also a request in valid Postman, but if both are present we
+        // still recurse AND emit the request below, losing nothing.
+        let is_folder = !item.item.is_empty();
+
+        if item.request.is_some() || !is_folder {
+            // Leaf: a request, OR a childless node (possibly malformed —
+            // the caller will warn about a missing request).
             out.push((folder_path.to_string(), item));
-        } else {
-            // It's a folder — recurse
+        }
+
+        if is_folder {
             let child_path = if folder_path.is_empty() {
                 item.name.clone()
             } else {

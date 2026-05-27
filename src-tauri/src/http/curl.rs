@@ -255,6 +255,7 @@ pub fn parse(input: &str) -> Result<HttpRequest, CurlError> {
         headers,
         query: vec![],
         body,
+        options: None,
     })
 }
 

@@ -6,7 +6,16 @@ import { useRequest } from "@/stores/request-store";
 describe("ResponseViewer", () => {
   beforeEach(() => {
     useRequest.setState({
-      request: { url: "", method: "GET", headers: [], query: [] },
+      request: {
+        url: "",
+        method: "GET",
+        headers: [],
+        query: [],
+        body: { kind: "none" },
+        options: {},
+        vars: [],
+        captures: [],
+      },
       auth: { kind: "none" },
       response: null,
       loading: false,

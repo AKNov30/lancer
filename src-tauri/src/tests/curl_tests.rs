@@ -59,6 +59,7 @@ fn to_curl_round_trips_basics() {
         body: Some(RequestBody::Json {
             value: serde_json::json!({"k": "v"}),
         }),
+        options: None,
     };
     let curl_str = curl::to_curl(&req);
     assert!(
@@ -117,6 +118,7 @@ fn to_fetch_produces_valid_js() {
         headers: vec![("Accept".into(), "application/json".into())],
         query: vec![],
         body: None,
+        options: None,
     };
     let fetch_str = curl::to_fetch(&req);
     assert!(
@@ -136,6 +138,7 @@ fn to_python_produces_requests_call() {
         body: Some(RequestBody::Json {
             value: serde_json::json!({"key": "value"}),
         }),
+        options: None,
     };
     let py = curl::to_python(&req);
     assert!(py.contains("import requests"), "missing import: {py}");
@@ -151,6 +154,7 @@ fn to_go_produces_compilable_stub() {
         headers: vec![],
         query: vec![],
         body: None,
+        options: None,
     };
     let go = curl::to_go(&req);
     assert!(go.contains("package main"), "missing package: {go}");

@@ -1,5 +1,5 @@
 use crate::collection::bru;
-use crate::collection::schema::{Auth, KvEnabled, Request};
+use crate::collection::schema::{Auth, KvEnabled, Request, RequestBody};
 use crate::http::types::Method;
 
 const FIXTURE: &str = include_str!("fixtures/simple.bru");
@@ -154,8 +154,8 @@ fn list_workspace_finds_bru_files_recursively() {
         "notes.txt should not appear in {rels:?}"
     );
 
-    // Each item exposes name and method
-    for item in &items {
+    // Each FILE item exposes name and method (folder items have empty method).
+    for item in items.iter().filter(|i| i.kind == "file") {
         assert_eq!(item.name, "Get user");
         assert_eq!(item.method, "GET");
         assert_eq!(item.seq, Some(1));
@@ -269,4 +269,72 @@ fn round_trip_preserves_scripts() {
     let serialized = bru::serialize(&req);
     let back = bru::parse(&serialized).unwrap();
     assert_eq!(req, back, "script round-trip failed:\n{serialized}");
+}
+
+/// A JSON body whose string values contain literal `{` / `}` must survive a
+/// serialize→parse round-trip. The lexer's brace scanner is string-aware, so
+/// the inner `}` in `"a}b"` no longer terminates the `body:json` block early.
+#[test]
+fn round_trip_json_body_with_braces_inside_string() {
+    let req = Request {
+        name: "Send".into(),
+        seq: Some(1),
+        method: Method::Post,
+        url: "https://x/echo".into(),
+        headers: vec![],
+        params: vec![],
+        body: Some(RequestBody::Json {
+            value: r#"{"msg":"a}b","tpl":"{not_a_brace","nested":{"k":"v}"}}"#.into(),
+        }),
+        auth: Some(Auth::None),
+        vars: vec![],
+        pre_request_script: None,
+        post_response_script: None,
+    };
+    let serialized = bru::serialize(&req);
+    let back = bru::parse(&serialized).unwrap();
+    assert_eq!(
+        req, back,
+        "brace-in-string round-trip failed:\n{serialized}"
+    );
+    match back.body {
+        Some(RequestBody::Json { value }) => {
+            assert!(value.contains(r#""msg":"a}b""#), "body truncated: {value}");
+        }
+        other => panic!("expected json body, got {other:?}"),
+    }
+}
+
+/// A text body's content type must persist across a serialize→parse round-trip
+/// rather than collapsing to `text/plain`.
+#[test]
+fn round_trip_text_body_preserves_content_type() {
+    let req = Request {
+        name: "Xml".into(),
+        seq: Some(1),
+        method: Method::Post,
+        url: "https://x/xml".into(),
+        headers: vec![],
+        params: vec![],
+        body: Some(RequestBody::Text {
+            value: "<root><a>1</a></root>".into(),
+            content_type: "application/xml".into(),
+        }),
+        auth: Some(Auth::None),
+        vars: vec![],
+        pre_request_script: None,
+        post_response_script: None,
+    };
+    let serialized = bru::serialize(&req);
+    let back = bru::parse(&serialized).unwrap();
+    assert_eq!(
+        req, back,
+        "text content-type round-trip failed:\n{serialized}"
+    );
+    match back.body {
+        Some(RequestBody::Text { content_type, .. }) => {
+            assert_eq!(content_type, "application/xml");
+        }
+        other => panic!("expected text body, got {other:?}"),
+    }
 }

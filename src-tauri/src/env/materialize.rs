@@ -72,6 +72,7 @@ pub fn materialize(req: &SchemaRequest) -> Result<HttpRequest, MaterializeError>
         headers,
         query,
         body,
+        options: None,
     })
 }
 

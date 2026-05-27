@@ -35,7 +35,16 @@ describe("Sidebar", () => {
       error: null,
     });
     useRequest.setState({
-      request: { url: "", method: "GET", headers: [], query: [] },
+      request: {
+        url: "",
+        method: "GET",
+        headers: [],
+        query: [],
+        body: { kind: "none" },
+        options: {},
+        vars: [],
+        captures: [],
+      },
       auth: { kind: "none" },
       response: null,
       loading: false,
@@ -45,9 +54,12 @@ describe("Sidebar", () => {
   });
 
   it("shows empty state with 'Open Folder' button when no rootPath", () => {
+    // Empty-state copy was rewritten to "Open a workspace" — still keep an
+    // assertion for the call-to-action button so the regression check holds.
     render(<Sidebar />);
-    expect(screen.getByText(/open a folder/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /open folder/i })).toBeInTheDocument();
+    // Empty-state copy now reads "No workspace yet" + "New workspace" CTA.
+    expect(screen.getByText(/no workspace yet/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new workspace/i })).toBeInTheDocument();
   });
 
   it("renders item list when rootPath set", () => {
@@ -55,6 +67,7 @@ describe("Sidebar", () => {
       rootPath: "/test/workspace",
       items: [
         {
+          kind: "file",
           path: "/test/workspace/login.bru",
           relPath: "login.bru",
           name: "Login",
@@ -62,6 +75,7 @@ describe("Sidebar", () => {
           seq: 1,
         },
         {
+          kind: "file",
           path: "/test/workspace/users.bru",
           relPath: "users.bru",
           name: "List Users",
@@ -79,6 +93,7 @@ describe("Sidebar", () => {
 
   it("loads request into store when item clicked", async () => {
     const loginItem: WorkspaceItem = {
+      kind: "file",
       path: "/test/workspace/login.bru",
       relPath: "login.bru",
       name: "Login",

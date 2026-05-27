@@ -1,32 +1,29 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRequest } from "@/stores/request-store";
+import type { AuthFieldProps } from "./shared";
 
-export function BasicFields() {
-  const auth = useRequest((s) => s.auth);
-  const setAuth = useRequest((s) => s.setAuth);
-
-  if (auth.kind !== "basic") return null;
+export function BasicFields({ value, onChange, idPrefix }: AuthFieldProps) {
+  if (value.kind !== "basic") return null;
 
   return (
-    <div className="grid max-w-md grid-cols-[100px_1fr] items-center gap-2">
-      <Label htmlFor="basic-username" className="text-xs">
+    <div className="grid w-full grid-cols-[120px_1fr] items-center gap-x-3 gap-y-2">
+      <Label htmlFor={`${idPrefix}-basic-username`} className="font-medium text-xs">
         Username
       </Label>
       <Input
-        id="basic-username"
-        value={auth.username}
-        onChange={(e) => setAuth({ ...auth, username: e.target.value })}
+        id={`${idPrefix}-basic-username`}
+        value={value.username}
+        onChange={(e) => onChange({ ...value, username: e.target.value })}
         className="font-mono text-xs"
       />
-      <Label htmlFor="basic-password" className="text-xs">
+      <Label htmlFor={`${idPrefix}-basic-password`} className="font-medium text-xs">
         Password
       </Label>
       <Input
-        id="basic-password"
+        id={`${idPrefix}-basic-password`}
         type="password"
-        value={auth.password}
-        onChange={(e) => setAuth({ ...auth, password: e.target.value })}
+        value={value.password}
+        onChange={(e) => onChange({ ...value, password: e.target.value })}
         className="font-mono text-xs"
       />
     </div>

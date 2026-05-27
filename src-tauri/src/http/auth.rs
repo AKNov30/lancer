@@ -255,8 +255,9 @@ pub async fn apply_auth(
             let entry = if let Some(e) = state.oauth2_cache.get(&key).await {
                 e
             } else {
+                let client = state.http_client();
                 let fresh = fetch_oauth2_token(
-                    &state.http_client,
+                    &client,
                     token_url,
                     client_id,
                     client_secret,

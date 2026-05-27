@@ -10,6 +10,8 @@ pub enum EnvIoError {
     Io(#[from] std::io::Error),
     #[error("parse: {0}")]
     Parse(#[from] crate::env::bru::EnvBruError),
+    #[error("invalid environment name: {0}")]
+    InvalidName(String),
 }
 
 impl serde::Serialize for EnvIoError {
@@ -38,6 +40,9 @@ pub fn list_envs(workspace_root: &Path) -> Result<Vec<String>, EnvIoError> {
 }
 
 pub fn read_env(workspace_root: &Path, name: &str) -> Result<Environment, EnvIoError> {
+    if !crate::fsutil::is_safe_name(name) {
+        return Err(EnvIoError::InvalidName(name.to_string()));
+    }
     let path = workspace_root
         .join("environments")
         .join(format!("{name}.bru"));
@@ -46,14 +51,20 @@ pub fn read_env(workspace_root: &Path, name: &str) -> Result<Environment, EnvIoE
 }
 
 pub fn write_env(workspace_root: &Path, env: &Environment) -> Result<(), EnvIoError> {
+    if !crate::fsutil::is_safe_name(&env.name) {
+        return Err(EnvIoError::InvalidName(env.name.clone()));
+    }
     let dir = workspace_root.join("environments");
     fs::create_dir_all(&dir)?;
     let path = dir.join(format!("{}.bru", env.name));
-    fs::write(path, bru::serialize(env))?;
+    crate::fsutil::write_atomic(&path, bru::serialize(env).as_bytes())?;
     Ok(())
 }
 
 pub fn delete_env(workspace_root: &Path, name: &str) -> Result<(), EnvIoError> {
+    if !crate::fsutil::is_safe_name(name) {
+        return Err(EnvIoError::InvalidName(name.to_string()));
+    }
     let path = workspace_root
         .join("environments")
         .join(format!("{name}.bru"));

@@ -13,6 +13,26 @@ pub fn history_list(
 }
 
 #[tauri::command]
+pub fn history_search(
+    query: String,
+    limit: Option<i64>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<HistoryEntry>, String> {
+    state
+        .history
+        .search(&query, limit.unwrap_or(100))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn history_pin(id: i64, pinned: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state
+        .history
+        .set_pinned(id, pinned)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn history_clear(state: tauri::State<'_, AppState>) -> Result<(), String> {
     state.history.clear().map_err(|e| e.to_string())
 }

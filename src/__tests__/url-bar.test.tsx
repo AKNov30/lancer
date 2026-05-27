@@ -24,7 +24,16 @@ import { sendRequest } from "@/lib/tauri";
 describe("UrlBar", () => {
   beforeEach(() => {
     useRequest.setState({
-      request: { url: "", method: "GET", headers: [], query: [] },
+      request: {
+        url: "",
+        method: "GET",
+        headers: [],
+        query: [],
+        body: { kind: "none" },
+        options: {},
+        vars: [],
+        captures: [],
+      },
       response: null,
       loading: false,
       error: null,
@@ -34,7 +43,9 @@ describe("UrlBar", () => {
 
   it("renders the method picker, url input, and Send button", () => {
     render(<UrlBar />);
-    expect(screen.getByPlaceholderText(/https:/i)).toBeInTheDocument();
+    // The URL field is now a CodeMirror single-line editor whose content is
+    // an accessible textbox labelled "Request URL".
+    expect(screen.getByRole("textbox", { name: /request url/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument();
   });
 
@@ -57,7 +68,11 @@ describe("UrlBar", () => {
     const user = userEvent.setup();
     render(<UrlBar />);
 
-    await user.type(screen.getByPlaceholderText(/https:/i), "https://httpbin.org/get");
+    // CodeMirror's contentEditable can't be typed into reliably under jsdom,
+    // so set the URL the same way the editor's onChange would (drives setUrl),
+    // then exercise the real Send path.
+    expect(screen.getByRole("textbox", { name: /request url/i })).toBeInTheDocument();
+    useRequest.getState().setUrl("https://httpbin.org/get");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     await vi.waitFor(() => {
@@ -80,7 +95,7 @@ describe("UrlBar", () => {
     const user = userEvent.setup();
     render(<UrlBar />);
 
-    await user.type(screen.getByPlaceholderText(/https:/i), "https://example.test");
+    useRequest.getState().setUrl("https://example.test");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     await vi.waitFor(() => {
