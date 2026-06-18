@@ -305,6 +305,59 @@ fn round_trip_json_body_with_braces_inside_string() {
     }
 }
 
+/// A multipart-form body carrying a plain text part AND a file part (encoded
+/// Bruno-style as `@file(<path>)@contentType(<mime>)`) must survive a
+/// serialize→parse round-trip. The `.bru` layer treats the values as opaque
+/// strings; the file/text distinction is decoded on the TS side, so the Rust
+/// round-trip only needs to preserve the key/value/enabled rows verbatim.
+#[test]
+fn round_trip_multipart_body_with_text_and_file_parts() {
+    let req = Request {
+        name: "Upload".into(),
+        seq: Some(1),
+        method: Method::Post,
+        url: "https://x/upload".into(),
+        headers: vec![],
+        params: vec![],
+        body: Some(RequestBody::MultipartForm {
+            fields: vec![
+                KvEnabled {
+                    key: "caption".into(),
+                    value: "hello world".into(),
+                    enabled: true,
+                },
+                KvEnabled {
+                    key: "avatar".into(),
+                    value: "@file(/tmp/pic.png)@contentType(image/png)".into(),
+                    enabled: true,
+                },
+                KvEnabled {
+                    key: "skip".into(),
+                    value: "@file(/tmp/ignored.bin)".into(),
+                    enabled: false,
+                },
+            ],
+        }),
+        auth: Some(Auth::None),
+        vars: vec![],
+        pre_request_script: None,
+        post_response_script: None,
+    };
+    let serialized = bru::serialize(&req);
+    // File parts use Bruno's `@file(...)` value convention.
+    assert!(
+        serialized.contains("avatar: @file(/tmp/pic.png)@contentType(image/png)"),
+        "missing encoded file part:\n{serialized}"
+    );
+    // Disabled rows keep the ~ prefix.
+    assert!(
+        serialized.contains("~skip: @file(/tmp/ignored.bin)"),
+        "disabled file part should be ~-prefixed:\n{serialized}"
+    );
+    let back = bru::parse(&serialized).unwrap();
+    assert_eq!(req, back, "multipart round-trip failed:\n{serialized}");
+}
+
 /// A text body's content type must persist across a serialize→parse round-trip
 /// rather than collapsing to `text/plain`.
 #[test]

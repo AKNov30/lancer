@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { TestResult } from "@/lib/types";
 
 export interface RunStep {
   path: string;
@@ -9,6 +10,10 @@ export interface RunStep {
   httpStatus: number;
   elapsedMs: number;
   error?: string;
+  /** Assertion results from the step's post-response script (empty if none ran). */
+  tests?: TestResult[];
+  /** Hard script error (syntax / uncaught) — the HTTP request still ran. */
+  scriptError?: string | null;
 }
 
 interface RunnerState {

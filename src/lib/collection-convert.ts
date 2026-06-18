@@ -13,7 +13,36 @@ function kvRowsToKvEnabled(rows: KvRow[]): KvEnabled[] {
   return rows.map((r) => ({ key: r.key, value: r.value, enabled: r.enabled }));
 }
 
-function bodyToCollection(body: Body): CollectionRequestBody | null {
+/**
+ * Multipart file parts are stored in a `.bru` `body:multipart-form` k-v block
+ * the same way Bruno does it: the field value is `@file(<path>)`, optionally
+ * suffixed with `@contentType(<mime>)`. This lets text + file parts share one
+ * `Vec<KvEnabled>` row list with no schema change, and survives the Rust
+ * serialize↔parse round-trip verbatim (the value is just a string there).
+ */
+const FILE_PART_RE = /^@file\((.*?)\)(?:@contentType\((.*)\))?$/;
+
+function encodeMultipartValue(field: MultipartField): string {
+  if (field.kind === "text") return field.value;
+  const ct = field.contentType.trim();
+  return ct ? `@file(${field.path})@contentType(${ct})` : `@file(${field.path})`;
+}
+
+function decodeMultipartField(kv: KvEnabled): MultipartField {
+  const matched = FILE_PART_RE.exec(kv.value);
+  if (matched) {
+    return {
+      kind: "file",
+      enabled: kv.enabled,
+      name: kv.key,
+      path: matched[1],
+      contentType: matched[2] ?? "",
+    };
+  }
+  return { kind: "text", enabled: kv.enabled, name: kv.key, value: kv.value };
+}
+
+export function bodyToCollection(body: Body): CollectionRequestBody | null {
   switch (body.kind) {
     case "none":
       return null;
@@ -24,18 +53,16 @@ function bodyToCollection(body: Body): CollectionRequestBody | null {
     case "form":
       return { kind: "formUrlencoded", fields: kvRowsToKvEnabled(body.fields) };
     case "multipart":
-      // Multipart files in the editor can't round-trip through the Bruno
-      // `multipartForm` schema (which only carries text k-v pairs). Save
-      // text fields and drop file rows — the user can re-pick after load.
+      // Both text AND file parts round-trip: text parts store their value
+      // verbatim; file parts encode their path (and optional content-type) as
+      // a Bruno-style `@file(...)` value via `encodeMultipartValue`.
       return {
         kind: "multipartForm",
-        fields: body.fields
-          .filter((f) => f.kind === "text")
-          .map((f) =>
-            f.kind === "text"
-              ? { key: f.name, value: f.value, enabled: f.enabled }
-              : { key: f.name, value: "", enabled: f.enabled },
-          ),
+        fields: body.fields.map((f) => ({
+          key: f.name,
+          value: encodeMultipartValue(f),
+          enabled: f.enabled,
+        })),
       };
     case "binary":
       return { kind: "binary", path: body.path, contentType: body.contentType };
@@ -73,14 +100,10 @@ export function bodyFromCollection(body: CollectionRequestBody | null): Body {
     case "formUrlencoded":
       return { kind: "form", fields: kvEnabledToKvRows(body.fields) };
     case "multipartForm": {
-      // Multipart's wire schema only carries text k-v pairs (files lost on save —
-      // see bodyToCollection multipart branch); restore them all as text parts.
-      const fields: MultipartField[] = body.fields.map((f) => ({
-        kind: "text",
-        enabled: f.enabled,
-        name: f.key,
-        value: f.value,
-      }));
+      // Decode each row back into a text or file part. A value of
+      // `@file(<path>)[@contentType(<mime>)]` becomes a file part; anything
+      // else is a plain text part (see `decodeMultipartField`).
+      const fields: MultipartField[] = body.fields.map(decodeMultipartField);
       return { kind: "multipart", fields };
     }
     case "graphQl":

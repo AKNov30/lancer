@@ -49,6 +49,7 @@ import {
   type WorkspaceActionDef,
 } from "@/lib/workspace-actions";
 import { useTabs } from "@/stores/request-store";
+import { toast } from "@/stores/toast-store";
 import { useTree } from "@/stores/tree-store";
 import { useUi } from "@/stores/ui-store";
 import { useWorkspace } from "@/stores/workspace-store";
@@ -61,6 +62,13 @@ import { SidebarTree, type SidebarTreeActions } from "./sidebar-tree";
  * (Windows workspace roots arrive with backslashes). */
 function normalizeForCompare(p: string): string {
   return p.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
+/** Best-effort human-readable cause from an unknown thrown value. */
+function errReason(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  return String(e);
 }
 
 export function Sidebar() {
@@ -148,6 +156,7 @@ export function Sidebar() {
         await refresh();
       } catch (e) {
         console.error("move_item failed", e);
+        toast.error("Couldn't move item", { description: errReason(e) });
       }
     },
     [refresh, retargetSavedPath],
@@ -209,6 +218,7 @@ export function Sidebar() {
             await refresh();
           } catch (e) {
             console.error("duplicate file failed", e);
+            toast.error("Couldn't duplicate file", { description: errReason(e) });
           }
         },
         onDuplicateFolder: async (folderAbsPath) => {
@@ -217,6 +227,7 @@ export function Sidebar() {
             await refresh();
           } catch (e) {
             console.error("duplicate folder failed", e);
+            toast.error("Couldn't duplicate folder", { description: errReason(e) });
           }
         },
         onCopyAsCurl: async (item) => {
@@ -233,8 +244,11 @@ export function Sidebar() {
             };
             const curl = await exportCurl(httpReq);
             await navigator.clipboard.writeText(curl);
+            // Clipboard writes give no other visible feedback, so confirm.
+            toast.success("cURL copied");
           } catch (e) {
             console.error("copy as curl failed", e);
+            toast.error("Couldn't copy as cURL", { description: errReason(e) });
           }
         },
         onRevealFile: async (item) => {
@@ -422,6 +436,7 @@ export function Sidebar() {
                         }));
                       } catch (e) {
                         console.error("read_request failed", e);
+                        toast.error("Couldn't open request", { description: errReason(e) });
                       }
                     }}
                     actions={treeActions}

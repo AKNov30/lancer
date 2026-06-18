@@ -79,11 +79,22 @@ export type Body =
   | { kind: "binary"; path: string; contentType: string }
   | { kind: "graphql"; query: string; variables: string };
 
+/**
+ * One part of a wire-side multipart body. Internally tagged on `kind` to match
+ * the Rust `MultipartPart` enum (`#[serde(tag = "kind")]`, camelCase). A `text`
+ * part sends an inline value; a `file` part is read from `path` by the Rust
+ * client, with an optional `contentType` override (empty → sniffed by ext).
+ */
+export type WireMultipartPart =
+  | { kind: "text"; name: string; value: string }
+  | { kind: "file"; name: string; path: string; contentType: string };
+
 /** A request body in the form the Rust wire layer accepts. */
 export type RequestBody =
   | { kind: "json"; value: unknown }
   | { kind: "text"; value: string; contentType: string }
   | { kind: "form"; fields: [string, string][] }
+  | { kind: "multipart"; parts: WireMultipartPart[] }
   | { kind: "binary"; path: string; contentType: string }
   | { kind: "none" };
 
@@ -111,6 +122,21 @@ export function wireBodyToEditor(wire: RequestBody | undefined | null): Body {
         kind: "form",
         fields: wire.fields.map(([key, value]) => ({ enabled: true, key, value })),
       };
+    case "multipart":
+      return {
+        kind: "multipart",
+        fields: wire.parts.map((p) =>
+          p.kind === "text"
+            ? { kind: "text", enabled: true, name: p.name, value: p.value }
+            : {
+                kind: "file",
+                enabled: true,
+                name: p.name,
+                path: p.path,
+                contentType: p.contentType,
+              },
+        ),
+      };
     case "binary":
       return { kind: "binary", path: wire.path, contentType: wire.contentType };
   }
@@ -118,8 +144,8 @@ export function wireBodyToEditor(wire: RequestBody | undefined | null): Body {
 
 /**
  * Convert an editor-side {@link Body} into the wire-side {@link RequestBody}.
- * Returns `undefined` if the body cannot be sent yet (e.g. multipart, which
- * needs reqwest multipart wire support — coming in Wave 1c follow-up).
+ * Every body kind is now sendable; the `undefined` return is retained in the
+ * signature for callers that still guard on it (none currently produce it).
  */
 export function bodyToWire(body: Body): RequestBody | undefined {
   switch (body.kind) {
@@ -153,9 +179,19 @@ export function bodyToWire(body: Body): RequestBody | undefined {
         contentType: "application/json",
       };
     }
-    case "multipart":
-      // Wire support pending; caller should detect and show a friendly message.
-      return undefined;
+    case "multipart": {
+      // Drop disabled rows and unnamed rows (mirrors `kvRowsToTuples`, which
+      // filters disabled + empty-key form fields). Each surviving row maps to
+      // an internally-tagged wire part the Rust client understands.
+      const parts: WireMultipartPart[] = body.fields
+        .filter((f) => f.enabled && f.name.trim().length > 0)
+        .map((f) =>
+          f.kind === "text"
+            ? { kind: "text", name: f.name, value: f.value }
+            : { kind: "file", name: f.name, path: f.path, contentType: f.contentType },
+        );
+      return { kind: "multipart", parts };
+    }
   }
 }
 

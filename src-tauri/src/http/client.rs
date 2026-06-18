@@ -1,4 +1,6 @@
-use crate::http::types::{HttpRequest, HttpResponse, Method, RequestBody, RequestOptions};
+use crate::http::types::{
+    HttpRequest, HttpResponse, Method, MultipartPart, RequestBody, RequestOptions,
+};
 use reqwest_cookie_store::CookieStoreMutex;
 use std::io::Read as _;
 use std::sync::Arc;
@@ -21,6 +23,8 @@ pub enum HttpError {
     InvalidHeader(String),
     #[error("binary body io error: {0}")]
     BinaryIo(String),
+    #[error("multipart body error: {0}")]
+    Multipart(String),
     #[error("client build error: {0}")]
     ClientBuild(String),
 }
@@ -62,6 +66,105 @@ fn build_custom_client(
         b = b.danger_accept_invalid_certs(true);
     }
     b.build().map_err(|e| HttpError::ClientBuild(e.to_string()))
+}
+
+/// Guess a MIME type from a file's extension. Covers the common upload types;
+/// everything else falls back to `application/octet-stream`. Kept inline (no
+/// extra dependency) since the set an API client needs is small.
+fn sniff_content_type(path: &std::path::Path) -> &'static str {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "json" => "application/json",
+        "xml" => "application/xml",
+        "txt" | "text" => "text/plain",
+        "csv" => "text/csv",
+        "html" | "htm" => "text/html",
+        "js" | "mjs" => "text/javascript",
+        "css" => "text/css",
+        "pdf" => "application/pdf",
+        "zip" => "application/zip",
+        "gz" => "application/gzip",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        "ico" => "image/x-icon",
+        "bmp" => "image/bmp",
+        "mp4" => "video/mp4",
+        "webm" => "video/webm",
+        "mp3" => "audio/mpeg",
+        "wav" => "audio/wav",
+        "ogg" => "audio/ogg",
+        _ => "application/octet-stream",
+    }
+}
+
+/// Assemble a `reqwest::multipart::Form` from the request's parts. Text parts
+/// are added inline; file parts are read fully into memory (capped at
+/// [`MAX_BINARY_BODY_BYTES`], same as a binary body) and attached with a
+/// filename + MIME type so the receiving server sees a normal upload.
+fn build_multipart_form(parts: Vec<MultipartPart>) -> Result<reqwest::multipart::Form, HttpError> {
+    let mut form = reqwest::multipart::Form::new();
+    for part in parts {
+        match part {
+            MultipartPart::Text { name, value } => {
+                form = form.text(name, value);
+            }
+            MultipartPart::File {
+                name,
+                path,
+                content_type,
+            } => {
+                let meta = std::fs::metadata(&path).map_err(|e| {
+                    HttpError::Multipart(format!(
+                        "part '{name}': cannot read file {}: {e}",
+                        path.display()
+                    ))
+                })?;
+                if meta.len() > MAX_BINARY_BODY_BYTES {
+                    return Err(HttpError::Multipart(format!(
+                        "part '{name}': file too large: {} bytes (max {} MiB)",
+                        meta.len(),
+                        MAX_BINARY_BODY_BYTES / (1024 * 1024)
+                    )));
+                }
+                let mut file = std::fs::File::open(&path).map_err(|e| {
+                    HttpError::Multipart(format!(
+                        "part '{name}': cannot open file {}: {e}",
+                        path.display()
+                    ))
+                })?;
+                let mut bytes = Vec::with_capacity(meta.len() as usize);
+                file.read_to_end(&mut bytes)
+                    .map_err(|e| HttpError::Multipart(format!("part '{name}': read error: {e}")))?;
+                let file_name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(String::from)
+                    .unwrap_or_else(|| name.clone());
+                // Pick the explicit content type if the user set one, else
+                // sniff from the file extension.
+                let mime = if content_type.trim().is_empty() {
+                    sniff_content_type(&path).to_string()
+                } else {
+                    content_type
+                };
+                let file_part = reqwest::multipart::Part::bytes(bytes)
+                    .file_name(file_name)
+                    .mime_str(&mime)
+                    .map_err(|e| {
+                        HttpError::Multipart(format!("part '{name}': invalid content-type: {e}"))
+                    })?;
+                form = form.part(name, file_part);
+            }
+        }
+    }
+    Ok(form)
 }
 
 pub async fn send(
@@ -154,6 +257,16 @@ pub async fn send(
             } else {
                 builder.form(&fields)
             }
+        }
+        Some(RequestBody::Multipart { parts }) => {
+            // `.multipart()` makes reqwest generate the `multipart/form-data`
+            // Content-Type *with* the random boundary param and overrides any
+            // header the user added — so we deliberately do NOT set one here.
+            // (The `user_set_content_type` override rule used by the other body
+            // kinds does not apply: a hand-typed boundary-less Content-Type
+            // would produce an unparseable body.)
+            let form = build_multipart_form(parts)?;
+            builder.multipart(form)
         }
         Some(RequestBody::Binary { path, content_type }) => {
             let meta = std::fs::metadata(&path).map_err(|e| HttpError::BinaryIo(e.to_string()))?;

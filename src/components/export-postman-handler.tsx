@@ -2,6 +2,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useEffect } from "react";
 import { workspaceToPostmanJson } from "@/lib/postman-export";
 import { saveBytes, type WorkspaceItem } from "@/lib/tauri";
+import { toast } from "@/stores/toast-store";
 import { useUi } from "@/stores/ui-store";
 import { useWorkspace } from "@/stores/workspace-store";
 
@@ -86,8 +87,14 @@ export function ExportPostmanHandler() {
         // saveBytes takes number[] (Uint8Array equivalent) — encode UTF-8.
         const bytes = Array.from(new TextEncoder().encode(json));
         await saveBytes(target, bytes);
+        // User-cancel returns null above (handled by `if (!target) return`),
+        // so reaching here means a write actually happened.
+        toast.success(`Exported "${scopeName}" as Postman v2.1`);
       } catch (e) {
         console.error("Postman export failed", e);
+        toast.error("Postman export failed", {
+          description: e instanceof Error ? e.message : String(e),
+        });
       }
     })();
   }, [pendingAction, clearPendingAction, rootPath, items]);

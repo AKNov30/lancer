@@ -42,6 +42,7 @@ import { useEnv } from "@/stores/env-store";
 import { useLayout } from "@/stores/layout-store";
 import { useTabs } from "@/stores/request-store";
 import { useTheme } from "@/stores/theme-store";
+import { toast } from "@/stores/toast-store";
 import { useUi } from "@/stores/ui-store";
 import { useWorkspace } from "@/stores/workspace-store";
 import { leafName, useWorkspaces } from "@/stores/workspaces-store";
@@ -144,6 +145,9 @@ export function CommandPalette() {
       }));
     } catch (e) {
       console.error("openRequest failed", e);
+      toast.error("Couldn't open request", {
+        description: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 

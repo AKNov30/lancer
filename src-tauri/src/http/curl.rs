@@ -342,6 +342,38 @@ pub fn to_curl(req: &HttpRequest) -> String {
                 ));
             }
         }
+        Some(RequestBody::Multipart { parts }) => {
+            // curl `-F` builds multipart/form-data and sets the boundary itself.
+            // Text parts: `-F 'name=value'`; file parts: `-F 'name=@path;type=mime'`.
+            for part in parts {
+                match part {
+                    crate::http::types::MultipartPart::Text { name, value } => {
+                        out.push_str(&format!(
+                            " \\\n  -F '{}={}'",
+                            sh_escape_sq(name),
+                            sh_escape_sq(value)
+                        ));
+                    }
+                    crate::http::types::MultipartPart::File {
+                        name,
+                        path,
+                        content_type,
+                    } => {
+                        let type_suffix = if content_type.trim().is_empty() {
+                            String::new()
+                        } else {
+                            format!(";type={}", sh_escape_sq(content_type))
+                        };
+                        out.push_str(&format!(
+                            " \\\n  -F '{}=@{}{}'",
+                            sh_escape_sq(name),
+                            path.display(),
+                            type_suffix
+                        ));
+                    }
+                }
+            }
+        }
         Some(RequestBody::Binary { path, content_type }) => {
             out.push_str(&format!(
                 " \\\n  -H 'content-type: {}' \\\n  --data-binary @{}",
@@ -523,6 +555,49 @@ pub fn to_python(req: &HttpRequest) -> String {
                 "\n    data=open({}, 'rb'),",
                 serde_json::to_string(&path.to_string_lossy()).unwrap_or_default()
             ));
+        }
+        Some(RequestBody::Multipart { parts }) => {
+            // `requests` builds multipart/form-data from a `files=` list of
+            // (name, ...) tuples: text → (name, value); file → (name, (basename,
+            // open(path,'rb'), mime?)).
+            let entries: Vec<String> = parts
+                .iter()
+                .map(|p| match p {
+                    crate::http::types::MultipartPart::Text { name, value } => format!(
+                        "        ({}, (None, {})),",
+                        serde_json::to_string(name).unwrap_or_default(),
+                        serde_json::to_string(value).unwrap_or_default()
+                    ),
+                    crate::http::types::MultipartPart::File {
+                        name,
+                        path,
+                        content_type,
+                    } => {
+                        let basename = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
+                        let open_expr = format!(
+                            "open({}, 'rb')",
+                            serde_json::to_string(&path.to_string_lossy()).unwrap_or_default()
+                        );
+                        if content_type.trim().is_empty() {
+                            format!(
+                                "        ({}, ({}, {})),",
+                                serde_json::to_string(name).unwrap_or_default(),
+                                serde_json::to_string(basename).unwrap_or_default(),
+                                open_expr
+                            )
+                        } else {
+                            format!(
+                                "        ({}, ({}, {}, {})),",
+                                serde_json::to_string(name).unwrap_or_default(),
+                                serde_json::to_string(basename).unwrap_or_default(),
+                                open_expr,
+                                serde_json::to_string(content_type).unwrap_or_default()
+                            )
+                        }
+                    }
+                })
+                .collect();
+            out.push_str(&format!("\n    files=[\n{}\n    ],", entries.join("\n")));
         }
         Some(RequestBody::None) | None => {}
     }

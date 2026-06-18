@@ -1,9 +1,12 @@
 import {
+  CheckCircle2Icon,
   CheckIcon,
+  ChevronRightIcon,
   CircleDashedIcon,
   Loader2,
   PlayIcon,
   StopCircleIcon,
+  XCircleIcon,
   XIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -19,13 +22,14 @@ import {
 import { runCaptures } from "@/lib/captures";
 import { requestFromCollection } from "@/lib/collection-convert";
 import { methodColor } from "@/lib/method-color";
+import { stepVerdict } from "@/lib/step-verdict";
 import { readRequest, sendRequest } from "@/lib/tauri";
 import { bodyToWire, isMethod, kvRowsToTuples, type Method } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useCaptures } from "@/stores/captures-store";
 import { useEnv } from "@/stores/env-store";
 import { useTabs } from "@/stores/request-store";
-import { useRunner } from "@/stores/runner-store";
+import { type RunStep, useRunner } from "@/stores/runner-store";
 import { useUi } from "@/stores/ui-store";
 import { useWorkspace } from "@/stores/workspace-store";
 
@@ -77,6 +81,13 @@ export function CollectionRunner() {
   const passed = steps.filter((s) => s.status === "passed").length;
   const failed = steps.filter((s) => s.status === "failed").length;
   const total = steps.length;
+  // Aggregate assertion outcomes across all steps for the run summary, so the
+  // result line reflects assertion failures and not just non-2xx steps.
+  const assertionsTotal = steps.reduce((n, s) => n + (s.tests?.length ?? 0), 0);
+  const assertionsFailed = steps.reduce(
+    (n, s) => n + (s.tests?.filter((t) => !t.passed).length ?? 0),
+    0,
+  );
   const inFlight = running;
 
   /**
@@ -87,14 +98,7 @@ export function CollectionRunner() {
    *  4. runs the request's own captures so later steps see fresh tokens.
    */
   async function execute() {
-    const initialSteps = candidates.map<{
-      path: string;
-      name: string;
-      method: string;
-      status: "pending";
-      httpStatus: number;
-      elapsedMs: number;
-    }>((c) => ({
+    const initialSteps = candidates.map<RunStep>((c) => ({
       path: c.path,
       name: c.name,
       method: c.method,
@@ -132,13 +136,27 @@ export function CollectionRunner() {
           envName: activeEnv,
           requestPath: step.path,
           extraVars: extraVars.length > 0 ? extraVars : undefined,
+          // Forward the request's own scripts so `lancer.test(...)` assertions
+          // actually run during the run — without these the backend skips
+          // post-response scripting and `resp.tests` comes back empty.
+          preRequestScript: editor.preRequestScript || undefined,
+          postResponseScript: editor.postResponseScript || undefined,
         });
-        // Default pass rule: any 2xx
-        const ok = resp.status >= 200 && resp.status < 300;
+        // Pass rule: a transport success (2xx) AND, when the request defines
+        // assertions, all of them passing (and no script error). Requests with
+        // no assertions fall back to the legacy 2xx-only rule.
+        const transportOk = resp.status >= 200 && resp.status < 300;
+        const verdict = stepVerdict({
+          transportOk,
+          tests: resp.tests ?? [],
+          scriptError: resp.scriptError,
+        });
         setStepStatus(i, {
-          status: ok ? "passed" : "failed",
+          status: verdict.passed ? "passed" : "failed",
           httpStatus: resp.status,
           elapsedMs: resp.elapsedMs,
+          tests: resp.tests ?? [],
+          scriptError: resp.scriptError ?? null,
         });
 
         // If the user has this request open in a tab AND defined captures
@@ -212,64 +230,9 @@ export function CollectionRunner() {
 
           {steps.length > 0 && (
             <ul className="max-h-80 space-y-1 overflow-y-auto rounded-md border border-border/60 p-1">
-              {steps.map((s) => {
-                const c = methodColor(s.method);
-                return (
-                  <li
-                    key={s.path}
-                    className={cn(
-                      "flex items-center gap-2 rounded-sm border px-2 py-1.5",
-                      s.status === "passed" &&
-                        "border-[color:var(--color-success)]/20 bg-[color:var(--color-success)]/5",
-                      s.status === "failed" && "border-destructive/30 bg-destructive/5",
-                      s.status === "running" && "border-primary/40 bg-primary/5",
-                      s.status === "pending" && "border-border/60 bg-card/40",
-                    )}
-                  >
-                    <span className="grid size-5 shrink-0 place-items-center" aria-hidden="true">
-                      {s.status === "passed" && (
-                        <CheckIcon
-                          className="size-3.5 text-[color:var(--color-success)]"
-                          strokeWidth={2.25}
-                        />
-                      )}
-                      {s.status === "failed" && (
-                        <XIcon className="size-3.5 text-destructive" strokeWidth={2.25} />
-                      )}
-                      {s.status === "running" && (
-                        <Loader2 className="size-3.5 animate-spin text-primary" />
-                      )}
-                      {s.status === "pending" && (
-                        <CircleDashedIcon className="size-3.5 text-muted-foreground/40" />
-                      )}
-                    </span>
-                    <span
-                      className="min-w-12 shrink-0 rounded-[3px] border px-1.5 py-px text-center font-mono font-semibold text-[10px] uppercase tracking-wider"
-                      style={{
-                        color: c,
-                        backgroundColor: `color-mix(in oklch, ${c} 14%, transparent)`,
-                        borderColor: `color-mix(in oklch, ${c} 25%, transparent)`,
-                      }}
-                    >
-                      {s.method || "—"}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-xs">{s.name}</span>
-                    {s.httpStatus > 0 && (
-                      <span className="shrink-0 nums-tabular text-[11px] text-muted-foreground">
-                        {s.httpStatus} · {s.elapsedMs}ms
-                      </span>
-                    )}
-                    {s.error && (
-                      <span
-                        className="ml-auto shrink-0 truncate text-[11px] text-destructive"
-                        title={s.error}
-                      >
-                        {s.error.length > 40 ? `${s.error.slice(0, 40)}…` : s.error}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
+              {steps.map((s) => (
+                <StepRow key={s.path} step={s} />
+              ))}
             </ul>
           )}
 
@@ -280,6 +243,22 @@ export function CollectionRunner() {
                 {passed} passed
               </span>
               <span className="font-semibold text-destructive nums-tabular">{failed} failed</span>
+              {assertionsTotal > 0 && (
+                <span
+                  className="nums-tabular"
+                  style={{
+                    color:
+                      assertionsFailed > 0
+                        ? "var(--color-destructive)"
+                        : "var(--color-muted-foreground)",
+                  }}
+                  title={`${assertionsTotal - assertionsFailed}/${assertionsTotal} assertions passed`}
+                >
+                  {assertionsFailed > 0
+                    ? `${assertionsFailed} assertion${assertionsFailed === 1 ? "" : "s"} failed`
+                    : `${assertionsTotal} assertion${assertionsTotal === 1 ? "" : "s"} passed`}
+                </span>
+              )}
               <span className="ml-auto text-muted-foreground nums-tabular">{total} total</span>
             </div>
           )}
@@ -313,5 +292,153 @@ export function CollectionRunner() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * One step row plus its expandable assertion list. Kept as its own component so
+ * each row owns its expand state. The assertion list reuses the response-viewer
+ * Tests-tab visual pattern (icons, success/destructive colors, tabular nums)
+ * for cross-surface consistency.
+ */
+function StepRow({ step: s }: { step: RunStep }) {
+  const c = methodColor(s.method);
+  const tests = s.tests ?? [];
+  const passedCount = tests.filter((t) => t.passed).length;
+  const failedCount = tests.length - passedCount;
+  const hasDetails = tests.length > 0 || Boolean(s.scriptError);
+  // Auto-expand failures so the reason is visible without a click.
+  const [expanded, setExpanded] = useState(false);
+  const showDetails = hasDetails && (expanded || s.status === "failed");
+
+  return (
+    <li
+      className={cn(
+        "rounded-sm border",
+        s.status === "passed" &&
+          "border-[color:var(--color-success)]/20 bg-[color:var(--color-success)]/5",
+        s.status === "failed" && "border-destructive/30 bg-destructive/5",
+        s.status === "running" && "border-primary/40 bg-primary/5",
+        s.status === "pending" && "border-border/60 bg-card/40",
+      )}
+    >
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <span className="grid size-5 shrink-0 place-items-center" aria-hidden="true">
+          {s.status === "passed" && (
+            <CheckIcon className="size-3.5 text-[color:var(--color-success)]" strokeWidth={2.25} />
+          )}
+          {s.status === "failed" && (
+            <XIcon className="size-3.5 text-destructive" strokeWidth={2.25} />
+          )}
+          {s.status === "running" && <Loader2 className="size-3.5 animate-spin text-primary" />}
+          {s.status === "pending" && (
+            <CircleDashedIcon className="size-3.5 text-muted-foreground/40" />
+          )}
+        </span>
+        <span
+          className="min-w-12 shrink-0 rounded-[3px] border px-1.5 py-px text-center font-mono font-semibold text-[10px] uppercase tracking-wider"
+          style={{
+            color: c,
+            backgroundColor: `color-mix(in oklch, ${c} 14%, transparent)`,
+            borderColor: `color-mix(in oklch, ${c} 25%, transparent)`,
+          }}
+        >
+          {s.method || "—"}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs">{s.name}</span>
+        {tests.length > 0 && (
+          <span
+            className="shrink-0 rounded-sm px-1 nums-tabular text-[10px]"
+            style={{
+              color: failedCount > 0 ? "var(--color-destructive)" : "var(--color-success)",
+              backgroundColor: `color-mix(in oklch, ${
+                failedCount > 0 ? "var(--color-destructive)" : "var(--color-success)"
+              } 14%, transparent)`,
+            }}
+            title={
+              failedCount > 0
+                ? `${passedCount}/${tests.length} passed — ${failedCount} failed`
+                : `${passedCount}/${tests.length} passed`
+            }
+          >
+            {passedCount}/{tests.length}
+          </span>
+        )}
+        {s.httpStatus > 0 && (
+          <span className="shrink-0 nums-tabular text-[11px] text-muted-foreground">
+            {s.httpStatus} · {s.elapsedMs}ms
+          </span>
+        )}
+        {s.error && (
+          <span className="shrink-0 truncate text-[11px] text-destructive" title={s.error}>
+            {s.error.length > 40 ? `${s.error.slice(0, 40)}…` : s.error}
+          </span>
+        )}
+        {hasDetails && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+            aria-label={showDetails ? "Hide assertions" : "Show assertions"}
+            aria-expanded={showDetails}
+            title={showDetails ? "Hide assertions" : "Show assertions"}
+          >
+            <ChevronRightIcon
+              className={cn("size-3.5 transition-transform", showDetails && "rotate-90")}
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+          </button>
+        )}
+      </div>
+
+      {showDetails && (
+        <div className="border-border/40 border-t px-2 pt-1 pb-1.5">
+          {s.scriptError && (
+            <div className="mb-1 rounded-sm border border-destructive/30 bg-destructive/5 px-2 py-1">
+              <p className="font-medium text-destructive text-[11px]">Script error</p>
+              <pre className="mt-0.5 whitespace-pre-wrap break-all font-mono text-[11px] text-destructive/90">
+                {s.scriptError}
+              </pre>
+            </div>
+          )}
+          {tests.length > 0 && (
+            <ul className="divide-y divide-border/40">
+              {tests.map((t, idx) => (
+                <li
+                  // biome-ignore lint/suspicious/noArrayIndexKey: assertion results are a fixed list regenerated wholesale per send
+                  key={`${idx}:${t.name}`}
+                  className="flex items-start gap-2 py-1 font-mono text-[11px]"
+                >
+                  {t.passed ? (
+                    <CheckCircle2Icon
+                      className="mt-0.5 size-3.5 shrink-0 text-[color:var(--color-success)]"
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <XCircleIcon
+                      className="mt-0.5 size-3.5 shrink-0 text-[color:var(--color-destructive)]"
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <span className={t.passed ? "text-foreground" : "font-medium text-destructive"}>
+                      {t.name}
+                    </span>
+                    {!t.passed && t.error && (
+                      <pre className="mt-0.5 whitespace-pre-wrap break-all text-[11px] text-muted-foreground">
+                        {t.error}
+                      </pre>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </li>
   );
 }

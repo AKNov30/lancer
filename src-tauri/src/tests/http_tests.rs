@@ -63,6 +63,130 @@ fn request_body_json_round_trip() {
     assert_eq!(reserialized, body);
 }
 
+/// The multipart wire shape must deserialize from the exact JSON the frontend
+/// `bodyToWire` produces: an internally-tagged `parts` array with `text` and
+/// `file` variants in camelCase (`contentType`).
+#[test]
+fn request_body_multipart_round_trip() {
+    use crate::http::types::{MultipartPart, RequestBody};
+    let body = serde_json::json!({
+        "kind": "multipart",
+        "parts": [
+            { "kind": "text", "name": "caption", "value": "hi" },
+            { "kind": "file", "name": "avatar", "path": "/tmp/a.png", "contentType": "image/png" }
+        ]
+    });
+    let parsed: RequestBody = serde_json::from_value(body.clone()).unwrap();
+    match &parsed {
+        RequestBody::Multipart { parts } => {
+            assert_eq!(parts.len(), 2);
+            assert!(matches!(&parts[0], MultipartPart::Text { name, value }
+                if name == "caption" && value == "hi"));
+            assert!(
+                matches!(&parts[1], MultipartPart::File { name, content_type, .. }
+                if name == "avatar" && content_type == "image/png")
+            );
+        }
+        other => panic!("expected multipart, got {other:?}"),
+    }
+    let reserialized = serde_json::to_value(&parsed).unwrap();
+    assert_eq!(reserialized, body, "multipart wire shape changed");
+}
+
+/// A `file` part with no `contentType` field must still deserialize (the
+/// frontend always sends one, but `#[serde(default)]` keeps us robust).
+#[test]
+fn request_body_multipart_file_content_type_defaults() {
+    use crate::http::types::{MultipartPart, RequestBody};
+    let body = serde_json::json!({
+        "kind": "multipart",
+        "parts": [ { "kind": "file", "name": "f", "path": "/tmp/x.bin" } ]
+    });
+    let parsed: RequestBody = serde_json::from_value(body).unwrap();
+    match parsed {
+        RequestBody::Multipart { parts } => {
+            assert!(matches!(&parts[0], MultipartPart::File { content_type, .. }
+                if content_type.is_empty()));
+        }
+        other => panic!("expected multipart, got {other:?}"),
+    }
+}
+
+/// Live end-to-end check that a `multipart` body with a real on-disk file
+/// uploads and is echoed back by httpbin. `#[ignore]`d by default because it
+/// depends on an external echo server (httpbin frequently returns 503); run
+/// explicitly with `cargo test --lib -- --ignored send_multipart_uploads`.
+#[tokio::test]
+#[ignore = "live network upload to httpbin; flaky, run on demand"]
+async fn send_multipart_uploads_text_and_file() {
+    use crate::http::types::{Method, MultipartPart, RequestBody};
+    use std::io::Write as _;
+
+    // Write a tiny temp file to attach.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let file_path = dir.path().join("note.txt");
+    let mut f = std::fs::File::create(&file_path).expect("create temp file");
+    f.write_all(b"lancer-multipart-payload")
+        .expect("write temp file");
+    drop(f);
+
+    let state = AppState::default();
+    let mut req = HttpRequest::new("https://httpbin.org/post");
+    req.method = Method::Post;
+    req.body = Some(RequestBody::Multipart {
+        parts: vec![
+            MultipartPart::Text {
+                name: "caption".into(),
+                value: "hello-lancer".into(),
+            },
+            MultipartPart::File {
+                name: "upload".into(),
+                path: file_path.clone(),
+                content_type: String::new(), // sniffed → text/plain
+            },
+        ],
+    });
+    let resp = send(&state.http_client(), &state.cookie_jar, req)
+        .await
+        .expect("request should succeed");
+    assert_eq!(resp.status, 200);
+    let text = resp.body_text.unwrap();
+    // httpbin echoes form fields under "form" and files under "files".
+    assert!(
+        text.contains("hello-lancer"),
+        "form text missing in: {text}"
+    );
+    assert!(
+        text.contains("lancer-multipart-payload"),
+        "file contents missing in: {text}"
+    );
+}
+
+/// A `file` part pointing at a missing path fails with a clear multipart error
+/// (no network needed — the error is raised while building the form).
+#[tokio::test]
+async fn send_multipart_missing_file_errors_clearly() {
+    use crate::http::types::{Method, MultipartPart, RequestBody};
+    let state = AppState::default();
+    let mut req = HttpRequest::new("https://httpbin.org/post");
+    req.method = Method::Post;
+    req.body = Some(RequestBody::Multipart {
+        parts: vec![MultipartPart::File {
+            name: "upload".into(),
+            path: "/definitely/not/a/real/path/xyz.bin".into(),
+            content_type: String::new(),
+        }],
+    });
+    let err = send(&state.http_client(), &state.cookie_jar, req)
+        .await
+        .expect_err("missing file should error before sending");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("multipart body error") && msg.contains("upload"),
+        "expected a clear multipart error naming the part, got: {msg}"
+    );
+}
+
 #[tokio::test]
 async fn send_get_returns_2xx_for_httpbin() {
     let state = AppState::default();

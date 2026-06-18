@@ -72,12 +72,39 @@ pub enum RequestBody {
     Form {
         fields: Vec<(String, String)>,
     },
+    /// A `multipart/form-data` body. Each part is either an inline text field
+    /// or a file read from disk. reqwest assembles the boundary itself, so the
+    /// client must NOT set a `Content-Type` header manually for this body.
+    Multipart {
+        parts: Vec<MultipartPart>,
+    },
     Binary {
         path: std::path::PathBuf,
         #[serde(rename = "contentType")]
         content_type: String,
     },
     None,
+}
+
+/// One field of a `multipart/form-data` body. Mirrors the frontend
+/// `MultipartField` wire shape (camelCase, internally tagged on `kind`):
+/// a `text` part carries an inline `value`; a `file` part carries a `path`
+/// to read from disk and an optional `contentType` override.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum MultipartPart {
+    Text {
+        name: String,
+        value: String,
+    },
+    File {
+        name: String,
+        path: std::path::PathBuf,
+        /// Optional MIME override. When empty/absent the client sniffs from
+        /// the file extension, falling back to `application/octet-stream`.
+        #[serde(default, rename = "contentType")]
+        content_type: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

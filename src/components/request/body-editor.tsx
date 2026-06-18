@@ -324,13 +324,10 @@ function MultipartBody({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2 rounded-md border border-[color:var(--color-warning)]/30 bg-[color:var(--color-warning)]/5 px-3 py-2 text-xs">
-        <span className="text-foreground">
-          <strong>Multipart wire support coming soon.</strong> Edit + save to{" "}
-          <code className="font-mono">.bru</code> works today; sending over the network ships in the
-          next release.
-        </span>
-      </div>
+      <p className="px-1 text-muted-foreground/70 text-xs">
+        Sent as <code className="font-mono">multipart/form-data</code>. Toggle a row between text
+        and file; file parts upload the picked file with a sniffed content type.
+      </p>
       <MultipartTable fields={fields} onChange={onChange} />
     </div>
   );

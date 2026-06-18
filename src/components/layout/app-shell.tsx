@@ -14,6 +14,7 @@ import { UrlBar } from "@/components/request/url-bar";
 import { ResponseViewer } from "@/components/response/response-viewer";
 import { ShortcutsDialog } from "@/components/shortcuts-dialog";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { Toaster } from "@/components/ui/toaster";
 import { WorkspaceExportDialog } from "@/components/workspace-export-dialog";
 import { requestFromCollection } from "@/lib/collection-convert";
 import { readRequest, startWatching } from "@/lib/tauri";
@@ -218,6 +219,7 @@ export function AppShell() {
       <ImportFromFileHandler />
       <WorkspaceExportDialog />
       <NewWorkspaceDialog />
+      <Toaster />
     </div>
   );
 }

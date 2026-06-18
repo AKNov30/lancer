@@ -135,6 +135,27 @@ pub fn substitute_http_request(req: &mut WireRequest, ctx: &Ctx) {
                 *path = std::path::PathBuf::from(new_path);
                 *content_type = substitute(content_type, ctx);
             }
+            WireBody::Multipart { parts } => {
+                use crate::http::types::MultipartPart;
+                for part in parts.iter_mut() {
+                    match part {
+                        MultipartPart::Text { name, value } => {
+                            *name = substitute(name, ctx);
+                            *value = substitute(value, ctx);
+                        }
+                        MultipartPart::File {
+                            name,
+                            path,
+                            content_type,
+                        } => {
+                            *name = substitute(name, ctx);
+                            let path_str = path.to_string_lossy().into_owned();
+                            *path = std::path::PathBuf::from(substitute(&path_str, ctx));
+                            *content_type = substitute(content_type, ctx);
+                        }
+                    }
+                }
+            }
             WireBody::None => {}
         }
     }

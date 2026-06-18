@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { statusColor } from "@/lib/status-color";
 import { saveBytes } from "@/lib/tauri";
 import { tabMode, useRequest } from "@/stores/request-store";
+import { toast } from "@/stores/toast-store";
 import { useUi } from "@/stores/ui-store";
 import { StreamPanel } from "./stream-panel";
 
@@ -94,8 +95,11 @@ function CopyButton({ value }: { value: string }) {
           await navigator.clipboard.writeText(value);
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
-        } catch {
-          /* clipboard unavailable */
+        } catch (e) {
+          console.error("copy body failed", e);
+          toast.error("Couldn't copy to clipboard", {
+            description: e instanceof Error ? e.message : String(e),
+          });
         }
       }}
       className="flex h-7 cursor-pointer items-center gap-1 rounded-sm border border-border/60 bg-card px-2 text-muted-foreground text-xs transition-all duration-150 hover:border-primary/40 hover:text-foreground active:scale-95"
@@ -168,13 +172,18 @@ function SaveButton({
     try {
       const defaultName = suggestFilename(url, contentType);
       const picked = await saveDialog({ defaultPath: defaultName });
+      // A user-cancel resolves to `null` (not a throw), so it falls through
+      // here silently — only a real write failure reaches the catch below.
       if (typeof picked === "string") {
         await saveBytes(picked, body);
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 1500);
       }
-    } catch {
-      /* user cancelled or write failed */
+    } catch (e) {
+      console.error("save response failed", e);
+      toast.error("Couldn't save response", {
+        description: e instanceof Error ? e.message : String(e),
+      });
     } finally {
       setSaving(false);
     }
